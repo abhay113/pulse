@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run tests
+      - name: Run unit tests
         run: pnpm test
 
       - name: Build applications
@@ -58,13 +58,12 @@ jobs:
           retention-days: 7
 
   # ============================================================================
-  # JOB 2: Deploy Dev
+  # JOB 2: Deploy Production
   # ============================================================================
-  deploy-dev:
-    name: Deploy to Dev
+  deploy:
+    name: Deploy Production
     needs: [build]
     runs-on: ubuntu-latest
-    environment: dev
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -103,93 +102,7 @@ jobs:
           terraform_version: 1.10.5
           terraform_wrapper: false
 
-      - name: Terraform Init & Apply (Dev)
-        run: |
-          cd infra/envs/dev
-          terraform init \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-            -backend-config="key=pulse/dev/terraform.tfstate" \
-            -backend-config="region=${{ vars.AWS_REGION || 'us-east-1' }}"
-
-          terraform plan \
-            -var="github_repo=${{ github.repository }}" \
-            -var="state_bucket_arn=arn:aws:s3:::${{ vars.TF_STATE_BUCKET }}" \
-            -out=tfplan-dev
-
-          terraform apply -auto-approve tfplan-dev
-
-          API_URL=$(terraform output -raw api_url)
-          echo "DEV_API_URL=$API_URL" >> $GITHUB_ENV
-          echo "Dev API URL is: $API_URL"
-
-      - name: Deploy Cloudflare Worker (Dev)
-        uses: cloudflare/wrangler-action@0e5e347c6a9a7a6c9c647b864a78103c809e51ef # v3.14.0
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: 'apps/worker'
-          command: deploy --env dev --var API_ORIGIN:${{ env.DEV_API_URL }}
-
-      - name: Smoke Test Dev Health Endpoint
-        run: |
-          echo "Running smoke test on AWS API Gateway health..."
-          HEALTH_URL="${{ env.DEV_API_URL }}api/health"
-          echo "Target: $HEALTH_URL"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL")
-          if [ "$STATUS" -ne 200 ]; then
-            echo "Smoke test FAILED with HTTP $STATUS"
-            curl -i "$HEALTH_URL"
-            exit 1
-          fi
-          echo "Smoke test PASSED with HTTP 200: $(curl -s $HEALTH_URL)"
-
-  # ============================================================================
-  # JOB 3: Deploy Prod (Protected by 'prod' environment manual approval gate)
-  # ============================================================================
-  deploy-prod:
-    name: Deploy to Production
-    needs: [deploy-dev]
-    runs-on: ubuntu-latest
-    environment: prod
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@a3252b78c470c02df07e9d79298aaed216581682 # v3.0.0
-        with:
-          version: 9.15.9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
-        with:
-          node-version: 22
-
-      - name: Download API dist
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          name: api-dist
-          path: apps/api/dist
-
-      - name: Download Web dist
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          name: web-dist
-          path: apps/web/dist
-
-      - name: Configure AWS Credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@e3ddf4a3c700a816685014308884320f93bad920 # v4.0.2
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        with:
-          terraform_version: 1.10.5
-          terraform_wrapper: false
-
-      - name: Terraform Init & Apply (Prod)
+      - name: Terraform Init & Apply
         run: |
           cd infra/envs/prod
           terraform init \
@@ -206,17 +119,17 @@ jobs:
 
           API_URL=$(terraform output -raw api_url)
           echo "PROD_API_URL=$API_URL" >> $GITHUB_ENV
-          echo "Prod API URL is: $API_URL"
+          echo "API URL is: $API_URL"
 
-      - name: Deploy Cloudflare Worker (Prod)
+      - name: Deploy Cloudflare Worker
         uses: cloudflare/wrangler-action@0e5e347c6a9a7a6c9c647b864a78103c809e51ef # v3.14.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: 'apps/worker'
-          command: deploy --env prod --var API_ORIGIN:${{ env.PROD_API_URL }}
+          command: deploy --var API_ORIGIN:${{ env.PROD_API_URL }}
 
-      - name: Smoke Test Prod Health Endpoint
+      - name: Smoke Test Health Endpoint
         run: |
           echo "Running smoke test on AWS API Gateway health..."
           HEALTH_URL="${{ env.PROD_API_URL }}api/health"
@@ -227,4 +140,4 @@ jobs:
             curl -i "$HEALTH_URL"
             exit 1
           fi
-          echo "Production smoke test PASSED with HTTP 200: $(curl -s $HEALTH_URL)"
+          echo "Smoke test PASSED with HTTP 200: $(curl -s $HEALTH_URL)"

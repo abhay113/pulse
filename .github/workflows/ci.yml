@@ -56,13 +56,7 @@ jobs:
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive infra
 
-      - name: Validate Terraform dev configuration
-        run: |
-          cd infra/envs/dev
-          terraform init -backend=false
-          terraform validate
-
-      - name: Validate Terraform prod configuration
+      - name: Validate Terraform configuration
         run: |
           cd infra/envs/prod
           terraform init -backend=false

@@ -29,8 +29,8 @@ variable "state_bucket_arn" {
 
 variable "create_oidc_provider" {
   type        = bool
-  description = "Whether to create the GitHub OIDC provider (false if already created in dev)"
-  default     = false
+  description = "Whether to create the GitHub OIDC provider"
+  default     = true
 }
 
 variable "budget_limit_usd" {

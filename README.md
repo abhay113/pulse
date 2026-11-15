@@ -20,11 +20,11 @@ flowchart TD
     end
 
     subgraph AWS ["AWS Cloud (arm64 / us-east-1)"]
-        APIGW["API Gateway HTTP API v2\n(Throttling: 50 rps / 100 burst)"]
-        Lambda["AWS Lambda Function\nNode.js 22 (arm64, 128MB)"]
+        APIGW["API Gateway HTTP API v2\n(Throttling: 100 rps / 200 burst)"]
+        Lambda["AWS Lambda Function\nNode.js 22 (arm64, 256MB)"]
         CWLogs["CloudWatch Log Group\n(14-day retention)"]
         CWAlarms["CloudWatch Alarms\n(Errors > 0, 5XX > 0)"]
-        Budget["AWS Budget Alert\n($5 dev / $10 prod)"]
+        Budget["AWS Budget Alert\n($10/month)"]
     end
 
     subgraph Security ["Security & Verification"]
@@ -72,13 +72,12 @@ pulse/
 │   │   ├── observability/  # CloudWatch Alarms (Errors, 5xx) & AWS Monthly Budget
 │   │   └── custom_domain/  # Optional ACM + Cloudflare DNS custom domain module
 │   └── envs/
-│       ├── dev/            # Dev environment root module
-│       └── prod/           # Production environment root module
+│       └── prod/           # Single production environment root
 └── .github/
     ├── dependabot.yml      # Automated weekly dependency updates
     └── workflows/
         ├── ci.yml          # PR validation: typecheck, lint, test, build, terraform validate
-        └── deploy.yml      # Push to main: test/build -> deploy dev -> approval -> deploy prod
+        └── deploy.yml      # Push to main: test/build -> deploy production -> smoke test
 ```
 
 ---
@@ -118,40 +117,29 @@ Save the output:
 
 ---
 
-### Step 2: Configure GitHub Secrets, Variables & Environments
+### Step 2: Configure GitHub Secrets & Variables
 
-In your GitHub repository, navigate to **Settings -> Environments**:
+In your GitHub repository, navigate to **Settings -> Secrets and variables -> Actions**:
 
-1. Create Environment **`dev`**:
-   - Variables:
-     - `AWS_ROLE_TO_ASSUME`: `arn:aws:iam::<ACCOUNT_ID>:role/pulse-dev-github-deployer`
-     - `AWS_REGION`: `us-east-1`
-     - `TF_STATE_BUCKET`: `pulse-tfstate-a1b2c3d4`
-
-2. Create Environment **`prod`**:
-   - Check **Required reviewers** and add yourself (this creates the manual approval gate).
-   - Variables:
-     - `AWS_ROLE_TO_ASSUME`: `arn:aws:iam::<ACCOUNT_ID>:role/pulse-prod-github-deployer`
-     - `AWS_REGION`: `us-east-1`
-     - `TF_STATE_BUCKET`: `pulse-tfstate-a1b2c3d4`
-
-3. In **Settings -> Secrets and variables -> Actions**:
-   - **Repository Secret**:
-     - `CLOUDFLARE_API_TOKEN`: Cloudflare token with `Workers Scripts: Edit` permissions.
-   - **Repository Variable**:
-     - `CLOUDFLARE_ACCOUNT_ID`: Your Cloudflare Account ID.
+1. **Repository Secret**:
+   - `CLOUDFLARE_API_TOKEN`: Cloudflare token with `Workers Scripts: Edit` permissions.
+2. **Repository Variables**:
+   - `CLOUDFLARE_ACCOUNT_ID`: Your Cloudflare Account ID (e.g. `8915ac2bd0869cd3b4c907356e74b8fc`).
+   - `TF_STATE_BUCKET`: The bootstrap bucket name (e.g. `pulse-tfstate-a1b2c3d4`).
+   - `AWS_ROLE_TO_ASSUME`: `arn:aws:iam::<ACCOUNT_ID>:role/pulse-prod-github-deployer`.
+   - `AWS_REGION`: `us-east-1`.
 
 ---
 
-### Step 3: Initial Deploy via Local Terraform or GitHub Actions
+### Step 3: Initial Deploy via Local Terraform or Push to Main
 
-To create the initial IAM OIDC deployer role for Dev locally:
+To create the initial IAM OIDC deployer role locally:
 
 ```bash
-cd infra/envs/dev
+cd infra/envs/prod
 terraform init \
   -backend-config="bucket=pulse-tfstate-a1b2c3d4" \
-  -backend-config="key=pulse/dev/terraform.tfstate" \
+  -backend-config="key=pulse/prod/terraform.tfstate" \
   -backend-config="region=us-east-1"
 
 terraform apply \
@@ -165,8 +153,7 @@ git push origin main
 ```
 GitHub Actions will automatically run:
 1. `build`: typecheck, unit test, compile web and API bundles.
-2. `deploy-dev`: executes Terraform plan/apply, deploys Cloudflare Worker, and smoke-tests `/api/health`.
-3. `deploy-prod`: pauses for your review and approval in GitHub, then deploys to Production.
+2. `deploy`: executes Terraform plan/apply, deploys Cloudflare Worker, and smoke-tests `/api/health`.
 
 ---
 
@@ -200,7 +187,7 @@ Visit `http://localhost:5173` in your browser. The Vite development server autom
 | **S3 Terraform State** | Pennies (under 10 MB state) | **<\$0.02** |
 | **Total** | | **~\$0.00 / month** |
 
-*Budgets are enforced automatically via AWS Budgets alerting at \$5/month for dev and \$10/month for prod.*
+*Budgets are enforced automatically via AWS Budgets alerting at \$10/month.*
 
 ---
 
@@ -209,24 +196,17 @@ Visit `http://localhost:5173` in your browser. The Vite development server autom
 To completely tear down all provisioned resources without leaving orphaned infrastructure, execute in the exact order below:
 
 ```bash
-# 1. Teardown Dev Environment
-cd infra/envs/dev
-terraform destroy -auto-approve \
-  -var="github_repo=your-username/pulse" \
-  -var="state_bucket_arn=arn:aws:s3:::pulse-tfstate-a1b2c3d4"
-
-# 2. Teardown Prod Environment
+# 1. Teardown Production Environment
 cd infra/envs/prod
 terraform destroy -auto-approve \
   -var="github_repo=your-username/pulse" \
   -var="state_bucket_arn=arn:aws:s3:::pulse-tfstate-a1b2c3d4"
 
-# 3. Delete Cloudflare Workers
+# 2. Delete Cloudflare Worker
 cd apps/worker
-npx wrangler delete --env dev
-npx wrangler delete --env prod
+npx wrangler delete
 
-# 4. Teardown Bootstrap S3 State Bucket (removes state locks and bucket)
+# 3. Teardown Bootstrap S3 State Bucket (removes state locks and bucket)
 cd infra/bootstrap
 terraform destroy -auto-approve
 ```
