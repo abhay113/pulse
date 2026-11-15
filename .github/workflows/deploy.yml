@@ -66,7 +66,6 @@ jobs:
     name: Deploy Production
     needs: [build]
     runs-on: ubuntu-latest
-    environment: prod
     permissions:
       contents: read
       id-token: write
@@ -99,9 +98,8 @@ jobs:
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME || 'arn:aws:iam::513210346124:role/pulse-prod-github-deployer' }}
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-          audience: sts.amazonaws.com
+          role-to-assume: arn:aws:iam::513210346124:role/pulse-prod-github-deployer
+          aws-region: us-east-1
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
@@ -113,13 +111,13 @@ jobs:
         run: |
           cd infra/envs/prod
           terraform init \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET || 'pulse-tfstate-60cca563' }}" \
+            -backend-config="bucket=pulse-tfstate-60cca563" \
             -backend-config="key=pulse/prod/terraform.tfstate" \
-            -backend-config="region=${{ vars.AWS_REGION || 'us-east-1' }}"
+            -backend-config="region=us-east-1"
           
           terraform plan \
             -var="github_repo=${{ github.repository }}" \
-            -var="state_bucket_arn=arn:aws:s3:::${{ vars.TF_STATE_BUCKET || 'pulse-tfstate-60cca563' }}" \
+            -var="state_bucket_arn=arn:aws:s3:::pulse-tfstate-60cca563" \
             -out=tfplan-prod
 
           terraform apply -auto-approve tfplan-prod
@@ -132,7 +130,7 @@ jobs:
         uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID || '8915ac2bd0869cd3b4c907356e74b8fc' }}
+          accountId: 8915ac2bd0869cd3b4c907356e74b8fc
           workingDirectory: 'apps/worker'
           command: deploy --var API_ORIGIN:${{ env.PROD_API_URL }}
 
