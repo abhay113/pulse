@@ -61,7 +61,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       time: new Date().toISOString(),
       timeEpoch: Date.now(),
     },
-    body,
+    ...(body !== undefined ? { body } : {}),
     isBase64Encoded: false,
   };
 

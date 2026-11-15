@@ -86,13 +86,14 @@ pulse/
 
 The backend API is stateless, fast, and cryptographically verified:
 
-| Method | Endpoint | Description | Response Payload |
-|---|---|---|---|
-| `GET` | `/api/health` | Healthcheck & version status | `{ "status": "ok", "version": "1.0.0", "time": "..." }` |
-| `GET` | `/api/round?level=N` | Generates sequence of length $N+2$ and HMAC token | `{ "level": 1, "sequence": [0, 2, 1], "token": "...", "padCount": 4 }` |
-| `POST` | `/api/verify` | Validates submitted answer against signed token | `{ "correct": true, "nextLevel": 2 }` |
+| Method | Endpoint             | Description                                       | Response Payload                                                       |
+| ------ | -------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
+| `GET`  | `/api/health`        | Healthcheck & version status                      | `{ "status": "ok", "version": "1.0.0", "time": "..." }`                |
+| `GET`  | `/api/round?level=N` | Generates sequence of length $N+2$ and HMAC token | `{ "level": 1, "sequence": [0, 2, 1], "token": "...", "padCount": 4 }` |
+| `POST` | `/api/verify`        | Validates submitted answer against signed token   | `{ "correct": true, "nextLevel": 2 }`                                  |
 
 ### Cryptographic HMAC Token Design
+
 - Tokens are formatted as `payloadBase64Url.signatureBase64Url`.
 - Payload contains: `{ level, sequence, exp, nonce }`.
 - Verification enforces a **5-minute expiration** (`exp`) and uses `crypto.timingSafeEqual` to thwart timing attacks.
@@ -113,6 +114,7 @@ terraform apply -auto-approve
 ```
 
 Save the output:
+
 - `state_bucket_name`: e.g., `pulse-tfstate-a1b2c3d4`
 
 ---
@@ -124,7 +126,7 @@ In your GitHub repository, navigate to **Settings -> Secrets and variables -> Ac
 1. **Repository Secret**:
    - `CLOUDFLARE_API_TOKEN`: Cloudflare token with `Workers Scripts: Edit` permissions.
 2. **Repository Variables**:
-   - `CLOUDFLARE_ACCOUNT_ID`: Your Cloudflare Account ID (e.g. `8915ac2bd0869cd3b4c907356e74b8fc`).
+   - `CLOUDFLARE_ACCOUNT_ID`: Your Cloudflare Account ID.
    - `TF_STATE_BUCKET`: The bootstrap bucket name (e.g. `pulse-tfstate-a1b2c3d4`).
    - `AWS_ROLE_TO_ASSUME`: `arn:aws:iam::<ACCOUNT_ID>:role/pulse-prod-github-deployer`.
    - `AWS_REGION`: `us-east-1`.
@@ -148,10 +150,13 @@ terraform apply \
 ```
 
 Once the OIDC role is established, commit and push to `main`:
+
 ```bash
 git push origin main
 ```
+
 GitHub Actions will automatically run:
+
 1. `build`: typecheck, unit test, compile web and API bundles.
 2. `deploy`: executes Terraform plan/apply, deploys Cloudflare Worker, and smoke-tests `/api/health`.
 
@@ -178,16 +183,16 @@ Visit `http://localhost:5173` in your browser. The Vite development server autom
 
 ## 💰 Cost Breakdown
 
-| Component | Free Tier Allowance | Estimated Monthly Cost |
-|---|---|---|
-| **AWS Lambda (arm64)** | 1,000,000 requests/month free | **\$0.00** |
-| **API Gateway (HTTP v2)** | 1,000,000 requests/month free for 12 mos (\$1.00/M after) | **\$0.00** |
-| **CloudWatch Logs** | 5 GB ingestion & storage free | **\$0.00** |
-| **Cloudflare Workers** | 100,000 requests/day free | **\$0.00** |
-| **S3 Terraform State** | Pennies (under 10 MB state) | **<\$0.02** |
-| **Total** | | **~\$0.00 / month** |
+| Component                 | Free Tier Allowance                                       | Estimated Monthly Cost |
+| ------------------------- | --------------------------------------------------------- | ---------------------- |
+| **AWS Lambda (arm64)**    | 1,000,000 requests/month free                             | **\$0.00**             |
+| **API Gateway (HTTP v2)** | 1,000,000 requests/month free for 12 mos (\$1.00/M after) | **\$0.00**             |
+| **CloudWatch Logs**       | 5 GB ingestion & storage free                             | **\$0.00**             |
+| **Cloudflare Workers**    | 100,000 requests/day free                                 | **\$0.00**             |
+| **S3 Terraform State**    | Pennies (under 10 MB state)                               | **<\$0.02**            |
+| **Total**                 |                                                           | **~\$0.00 / month**    |
 
-*Budgets are enforced automatically via AWS Budgets alerting at \$10/month.*
+_Budgets are enforced automatically via AWS Budgets alerting at \$10/month._
 
 ---
 

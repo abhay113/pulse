@@ -95,29 +95,11 @@ jobs:
           name: web-dist
           path: apps/web/dist
 
-      - name: Debug OIDC Token
-        run: |
-          echo "Fetching GitHub OIDC token..."
-          TOKEN_RES=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com")
-          JWT=$(echo "$TOKEN_RES" | jq -r '.value')
-          echo "JWT received."
-          # Decode JWT header and payload (middle part)
-          PAYLOAD=$(echo "$JWT" | cut -d'.' -f2 | base64 -d 2>/dev/null || echo "$JWT" | cut -d'.' -f2)
-          echo "Decoded JWT Payload:"
-          echo "$PAYLOAD" | jq . || echo "$PAYLOAD"
-          
-          echo "Testing direct STS assume-role-with-web-identity..."
-          aws sts assume-role-with-web-identity \
-            --role-arn "arn:aws:iam::513210346124:role/pulse-prod-github-deployer" \
-            --role-session-name "gh-debug" \
-            --web-identity-token "$JWT" \
-            --region us-east-1 || true
-
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
-          role-to-assume: arn:aws:iam::513210346124:role/pulse-prod-github-deployer
-          aws-region: us-east-1
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
@@ -129,17 +111,17 @@ jobs:
         run: |
           cd infra/envs/prod
           terraform init \
-            -backend-config="bucket=pulse-tfstate-60cca563" \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
             -backend-config="key=pulse/prod/terraform.tfstate" \
-            -backend-config="region=us-east-1"
-          
+            -backend-config="region=${{ vars.AWS_REGION }}"
+
           terraform plan \
             -var="github_repo=${{ github.repository }}" \
-            -var="state_bucket_arn=arn:aws:s3:::pulse-tfstate-60cca563" \
+            -var="state_bucket_arn=arn:aws:s3:::${{ vars.TF_STATE_BUCKET }}" \
             -out=tfplan-prod
 
           terraform apply -auto-approve tfplan-prod
-          
+
           API_URL=$(terraform output -raw api_url)
           echo "PROD_API_URL=$API_URL" >> $GITHUB_ENV
           echo "API URL is: $API_URL"
@@ -148,7 +130,7 @@ jobs:
         uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: 8915ac2bd0869cd3b4c907356e74b8fc
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: 'apps/worker'
           command: deploy --var API_ORIGIN:${{ env.PROD_API_URL }}
 

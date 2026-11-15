@@ -13,15 +13,15 @@ data "aws_caller_identity" "current" {}
 # 1. GitHub Actions OIDC Provider
 # GitHub OIDC thumbprints (GitHub's official well-known root CA thumbprints)
 resource "aws_iam_openid_connect_provider" "github" {
-  count           = var.create_oidc_provider ? 1 : 0
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com", "https://github.com/${split("/", var.github_repo)[0]}"]
+  count          = var.create_oidc_provider ? 1 : 0
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com", "https://github.com/${split("/", var.github_repo)[0]}"]
   thumbprint_list = [
     "d367a47959a77b088bec4fe3e7dd3ec9ba733ab5",
     "6938fd4d98bab03faadb97b34396831e3780aea1",
     "1c58a3a8518e8759bf075b76b750d4f8d264fcd9",
   ]
-  tags            = var.tags
+  tags = var.tags
 }
 
 locals {

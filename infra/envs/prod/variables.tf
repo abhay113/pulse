@@ -19,7 +19,6 @@ variable "environment" {
 variable "github_repo" {
   type        = string
   description = "GitHub repository formatted as owner/repo"
-  default     = "abhay113/pulse"
 }
 
 variable "state_bucket_arn" {

@@ -10,7 +10,7 @@
     "dev:worker": "pnpm --filter @pulse/worker dev",
     "build": "pnpm --filter @pulse/api build && pnpm --filter @pulse/web build",
     "test": "pnpm --filter @pulse/api test",
-    "typecheck": "pnpm -r exec tsc --noEmit",
+    "typecheck": "pnpm -r --filter \"./apps/*\" typecheck",
     "lint": "eslint . --max-warnings 0",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yaml,yml}\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yaml,yml}\""
