@@ -1,0 +1,32 @@
+{
+  "name": "pulse-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -p \"[{name}]\" -n \"api,web\" -c \"magenta,cyan\" \"pnpm --filter @pulse/api dev\" \"pnpm --filter @pulse/web dev\"",
+    "dev:api": "pnpm --filter @pulse/api dev",
+    "dev:web": "pnpm --filter @pulse/web dev",
+    "dev:worker": "pnpm --filter @pulse/worker dev",
+    "build": "pnpm --filter @pulse/api build && pnpm --filter @pulse/web build",
+    "test": "pnpm --filter @pulse/api test",
+    "typecheck": "pnpm -r exec tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yaml,yml}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yaml,yml}\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "concurrently": "^9.1.0",
+    "eslint": "^9.16.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
+
