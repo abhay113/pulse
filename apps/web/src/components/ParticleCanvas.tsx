@@ -85,4 +85,3 @@ export const ParticleCanvas: React.FC = () => {
     />
   );
 };
-

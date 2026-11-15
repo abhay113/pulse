@@ -46,4 +46,3 @@ export async function verifyRound(token: string, answer: number[]): Promise<Veri
   }
   return res.json();
 }
-

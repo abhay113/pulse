@@ -2,13 +2,7 @@ import React from 'react';
 import { Volume2, VolumeX, ShieldCheck, Zap } from 'lucide-react';
 
 export type GameState =
-  | 'IDLE'
-  | 'LOADING'
-  | 'PLAYBACK'
-  | 'PLAYER_INPUT'
-  | 'VERIFYING'
-  | 'ROUND_SUCCESS'
-  | 'GAME_OVER';
+  'IDLE' | 'LOADING' | 'PLAYBACK' | 'PLAYER_INPUT' | 'VERIFYING' | 'ROUND_SUCCESS' | 'GAME_OVER';
 
 interface ScoreBoardProps {
   level: number;
@@ -36,16 +30,25 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({
       case 'IDLE':
         return { text: 'STANDBY', color: 'border-gray-600 text-gray-400 bg-gray-900/50' };
       case 'LOADING':
-        return { text: 'SYNCING...', color: 'border-cyan-500/50 text-cyan-300 bg-cyan-950/40 animate-pulse' };
+        return {
+          text: 'SYNCING...',
+          color: 'border-cyan-500/50 text-cyan-300 bg-cyan-950/40 animate-pulse',
+        };
       case 'PLAYBACK':
-        return { text: 'WATCH PULSE', color: 'border-pink-500/50 text-pink-300 bg-pink-950/40 animate-pulse' };
+        return {
+          text: 'WATCH PULSE',
+          color: 'border-pink-500/50 text-pink-300 bg-pink-950/40 animate-pulse',
+        };
       case 'PLAYER_INPUT':
         return {
           text: `YOUR TURN (${playerInputCount}/${totalSequenceLength})`,
           color: 'border-lime-500 text-lime-300 bg-lime-950/50 shadow-glow-lime',
         };
       case 'VERIFYING':
-        return { text: 'CHECKING HMAC', color: 'border-amber-500/50 text-amber-300 bg-amber-950/40 animate-pulse' };
+        return {
+          text: 'CHECKING HMAC',
+          color: 'border-amber-500/50 text-amber-300 bg-amber-950/40 animate-pulse',
+        };
       case 'ROUND_SUCCESS':
         return { text: 'CLEAR!', color: 'border-lime-400 text-lime-400 bg-lime-950/60' };
       case 'GAME_OVER':
@@ -75,7 +78,11 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({
           aria-label={soundEnabled ? 'Mute audio' : 'Unmute audio'}
           title={soundEnabled ? 'Audio On' : 'Audio Muted'}
         >
-          {soundEnabled ? <Volume2 className="w-4 h-4 text-cyan-400" /> : <VolumeX className="w-4 h-4 text-gray-400" />}
+          {soundEnabled ? (
+            <Volume2 className="w-4 h-4 text-cyan-400" />
+          ) : (
+            <VolumeX className="w-4 h-4 text-gray-400" />
+          )}
         </button>
       </div>
 
@@ -109,4 +116,3 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({
     </div>
   );
 };
-

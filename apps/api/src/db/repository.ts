@@ -27,4 +27,3 @@ class StatelessGameRepository implements GameRepository {
 }
 
 export const gameRepository: GameRepository = new StatelessGameRepository();
-

@@ -28,11 +28,7 @@ export function signToken(payload: TokenPayload, secret: string = getSecret()): 
   const payloadB64 = base64UrlEncode(payloadJson);
   const hmac = createHmac('sha256', secret);
   hmac.update(payloadB64);
-  const sigB64 = hmac
-    .digest('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+  const sigB64 = hmac.digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   return `${payloadB64}.${sigB64}`;
 }
 
@@ -83,4 +79,3 @@ export function verifyToken(
     return { valid: false, reason: 'Corrupt payload decoding' };
   }
 }
-

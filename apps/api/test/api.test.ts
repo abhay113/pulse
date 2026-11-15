@@ -175,4 +175,3 @@ describe('Pulse API Handler', () => {
     expect(response.statusCode).toBe(404);
   });
 });
-

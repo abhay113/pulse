@@ -59,7 +59,9 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
 
       const { level } = parseResult.data;
       const sequenceLength = level + 2;
-      const sequence: number[] = Array.from({ length: sequenceLength }, () => randomInt(0, PAD_COUNT));
+      const sequence: number[] = Array.from({ length: sequenceLength }, () =>
+        randomInt(0, PAD_COUNT),
+      );
 
       const payload = {
         level,
@@ -170,4 +172,3 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
     });
   }
 }
-

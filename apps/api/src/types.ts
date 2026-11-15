@@ -23,4 +23,3 @@ export interface TokenPayload {
   exp: number; // UNIX timestamp in milliseconds
   nonce: string;
 }
-

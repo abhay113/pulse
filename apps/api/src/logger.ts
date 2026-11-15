@@ -32,10 +32,12 @@ export const logger = {
         level: 'ERROR',
         timestamp: new Date().toISOString(),
         message,
-        error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+        error:
+          error instanceof Error
+            ? { name: error.name, message: error.message, stack: error.stack }
+            : error,
         ...context,
       }),
     );
   },
 };
-

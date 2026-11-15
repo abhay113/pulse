@@ -18,4 +18,3 @@ export const verifyBodySchema = z.object({
 
 export type RoundQuery = z.infer<typeof roundQuerySchema>;
 export type VerifyBody = z.infer<typeof verifyBodySchema>;
-
