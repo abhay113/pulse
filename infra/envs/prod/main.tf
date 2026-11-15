@@ -13,7 +13,7 @@ module "lambda_api" {
   environment            = var.environment
   memory_size            = 256
   timeout                = 5
-  reserved_concurrency   = 50
+  reserved_concurrency   = -1
   throttling_rate_limit  = 100
   throttling_burst_limit = 200
   cors_allow_origins     = var.cors_allow_origins

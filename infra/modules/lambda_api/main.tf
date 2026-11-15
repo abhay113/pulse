@@ -82,7 +82,7 @@ resource "aws_lambda_function" "api" {
   architectures                  = ["arm64"]
   memory_size                    = var.memory_size
   timeout                        = var.timeout
-  reserved_concurrent_executions = var.reserved_concurrency
+  reserved_concurrent_executions = var.reserved_concurrency > 0 ? var.reserved_concurrency : null
 
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256

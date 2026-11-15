@@ -34,12 +34,8 @@ variable "timeout" {
 
 variable "reserved_concurrency" {
   type        = number
-  description = "Maximum concurrent Lambda executions cap"
-  default     = 20
-  validation {
-    condition     = var.reserved_concurrency >= 1 && var.reserved_concurrency <= 100
-    error_message = "Reserved concurrency must be between 1 and 100."
-  }
+  description = "Maximum concurrent Lambda executions cap (-1 for unreserved account pool)"
+  default     = -1
 }
 
 variable "throttling_rate_limit" {

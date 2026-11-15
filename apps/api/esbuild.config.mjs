@@ -7,13 +7,8 @@ await esbuild.build({
   sourcemap: true,
   platform: 'node',
   target: 'node22',
-  format: 'esm',
+  format: 'cjs',
   outfile: 'dist/index.js',
-  external: ['@aws-sdk/*'],
-  banner: {
-    js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
-  },
 });
 
-console.log('API bundled successfully with esbuild for Node 22 (arm64).');
-
+console.log('API bundled successfully with esbuild for Node 22 (arm64, CJS).');
