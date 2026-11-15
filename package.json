@@ -9,6 +9,8 @@
     "dev:web": "pnpm --filter @pulse/web dev",
     "dev:worker": "pnpm --filter @pulse/worker dev",
     "build": "pnpm --filter @pulse/api build && pnpm --filter @pulse/web build",
+    "build:worker": "pnpm --filter @pulse/worker build",
+    "deploy:worker": "pnpm --filter @pulse/worker deploy",
     "test": "pnpm --filter @pulse/api test",
     "typecheck": "pnpm -r --filter \"./apps/*\" typecheck",
     "lint": "eslint . --max-warnings 0",

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { handler } from '../src/index.js';
 import { signToken } from '../src/crypto.js';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';

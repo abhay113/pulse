@@ -56,6 +56,13 @@ variable "cors_allow_origins" {
   default     = []
 }
 
+variable "hmac_secret" {
+  type        = string
+  description = "Optional custom HMAC signing secret (if omitted, a cryptographically secure random 32-character string is generated)"
+  default     = ""
+  sensitive   = true
+}
+
 variable "tags" {
   type        = map(string)
   description = "Resource tags"

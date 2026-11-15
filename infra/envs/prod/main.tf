@@ -17,6 +17,7 @@ module "lambda_api" {
   throttling_rate_limit  = 100
   throttling_burst_limit = 200
   cors_allow_origins     = var.cors_allow_origins
+  hmac_secret            = var.hmac_secret
   tags                   = local.tags
 }
 

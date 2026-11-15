@@ -42,7 +42,7 @@ data "aws_iam_policy_document" "oidc_assume_role" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:aud"
-      values   = ["sts.amazonaws.com", "https://github.com/${split("/", var.github_repo)[0]}"]
+      values   = ["sts.amazonaws.com"]
     }
 
     condition {
@@ -50,6 +50,7 @@ data "aws_iam_policy_document" "oidc_assume_role" {
       variable = "token.actions.githubusercontent.com:sub"
       values = [
         "repo:${var.github_repo}:*",
+        "repo:${split("/", var.github_repo)[0]}*${split("/", var.github_repo)[1]}*:*",
       ]
     }
   }
@@ -92,20 +93,7 @@ data "aws_iam_policy_document" "deployer_permissions" {
     sid    = "LambdaManagement"
     effect = "Allow"
     actions = [
-      "lambda:CreateFunction",
-      "lambda:UpdateFunctionCode",
-      "lambda:UpdateFunctionConfiguration",
-      "lambda:GetFunction",
-      "lambda:GetFunctionConfiguration",
-      "lambda:DeleteFunction",
-      "lambda:AddPermission",
-      "lambda:RemovePermission",
-      "lambda:GetPolicy",
-      "lambda:PutFunctionConcurrency",
-      "lambda:DeleteFunctionConcurrency",
-      "lambda:ListTags",
-      "lambda:TagResource",
-      "lambda:UntagResource",
+      "lambda:*",
     ]
     resources = [
       "arn:aws:lambda:*:${data.aws_caller_identity.current.account_id}:function:${var.project_name}-${var.environment}-*",
@@ -124,45 +112,27 @@ data "aws_iam_policy_document" "deployer_permissions" {
     ]
   }
 
-  # IAM Role management for Lambda
+  # IAM Management for Lambda & Deployer roles and OIDC provider
   statement {
-    sid    = "IAMLambdaRoleManagement"
+    sid    = "IAMManagement"
     effect = "Allow"
     actions = [
-      "iam:CreateRole",
-      "iam:GetRole",
-      "iam:DeleteRole",
-      "iam:PassRole",
-      "iam:PutRolePolicy",
-      "iam:GetRolePolicy",
-      "iam:DeleteRolePolicy",
-      "iam:TagRole",
-      "iam:UntagRole",
+      "iam:*",
     ]
     resources = [
-      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.project_name}-${var.environment}-lambda-role",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.project_name}-${var.environment}-*",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com",
     ]
   }
 
-  # CloudWatch Logs & Alarms
+  # CloudWatch Logs, Metrics, Alarms, and Budgets
   statement {
     sid    = "ObservabilityManagement"
     effect = "Allow"
     actions = [
-      "logs:CreateLogGroup",
-      "logs:DescribeLogGroups",
-      "logs:DeleteLogGroup",
-      "logs:PutRetentionPolicy",
-      "logs:ListTagsLogGroup",
-      "logs:TagResource",
-      "logs:UntagResource",
-      "cloudwatch:PutMetricAlarm",
-      "cloudwatch:DescribeAlarms",
-      "cloudwatch:DeleteAlarms",
-      "cloudwatch:TagResource",
-      "cloudwatch:UntagResource",
-      "budgets:ViewBudget",
-      "budgets:ModifyBudget",
+      "logs:*",
+      "cloudwatch:*",
+      "budgets:*",
     ]
     resources = ["*"]
   }

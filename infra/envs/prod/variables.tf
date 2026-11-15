@@ -50,3 +50,10 @@ variable "cors_allow_origins" {
   default     = []
 }
 
+variable "hmac_secret" {
+  type        = string
+  description = "Optional HMAC secret override"
+  default     = ""
+  sensitive   = true
+}
+

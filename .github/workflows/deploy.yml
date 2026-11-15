@@ -145,7 +145,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: 'apps/worker'
-          command: deploy --var API_ORIGIN:${{ env.PROD_API_URL }}
+          command: deploy --config wrangler.json --var API_ORIGIN:${{ env.PROD_API_URL }}
 
       - name: Smoke Test Health Endpoint
         run: |
@@ -158,4 +158,16 @@ jobs:
             curl -i "$HEALTH_URL"
             exit 1
           fi
-          echo "Smoke test PASSED with HTTP 200: $(curl -s $HEALTH_URL)"
+          echo "AWS API Gateway smoke test PASSED with HTTP 200: $(curl -s $HEALTH_URL)"
+
+          if [ -n "${{ vars.CLOUDFLARE_SUBDOMAIN }}" ]; then
+            CF_WORKER_URL="https://pulse.${{ vars.CLOUDFLARE_SUBDOMAIN }}.workers.dev/api/health"
+            echo "Testing Cloudflare Worker endpoint: $CF_WORKER_URL"
+            CF_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$CF_WORKER_URL")
+            if [ "$CF_STATUS" -ne 200 ]; then
+              echo "Cloudflare Worker smoke test FAILED with HTTP $CF_STATUS"
+              curl -i "$CF_WORKER_URL"
+              exit 1
+            fi
+            echo "Cloudflare Worker smoke test PASSED with HTTP 200: $(curl -s $CF_WORKER_URL)"
+          fi

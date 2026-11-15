@@ -6,9 +6,9 @@ import { signToken, verifyToken } from './crypto.js';
 import { gameRepository } from './db/repository.js';
 import type { HealthResponse, RoundResponse, VerifyResponse } from './types.js';
 
-const APP_VERSION = '1.0.0';
-const TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutes validity
-const PAD_COUNT = 4; // 4 neon pads: 0=cyan, 1=magenta, 2=lime, 3=amber
+const APP_VERSION = process.env.APP_VERSION || '1.0.0';
+const TOKEN_TTL_MS = parseInt(process.env.TOKEN_TTL_MS || '300000', 10); // 5 minutes validity
+const PAD_COUNT = parseInt(process.env.PAD_COUNT || '4', 10); // 4 neon pads: 0=cyan, 1=magenta, 2=lime, 3=amber
 
 function jsonResponse(statusCode: number, body: unknown): APIGatewayProxyResultV2 {
   return {

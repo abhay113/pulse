@@ -55,7 +55,7 @@ pulse/
 │   │   ├── src/utils/      # Web Audio API synth, API client
 │   │   └── tailwind.config # Cyberpunk neon glow styling
 │   ├── worker/             # Cloudflare Worker reverse-proxy & security headers
-│   │   ├── wrangler.jsonc  # Workers Assets config (run_worker_first, ASSETS binding)
+│   │   ├── wrangler.json   # Workers Assets config (run_worker_first, ASSETS binding)
 │   │   └── src/index.ts    # Upstream proxying to AWS API Gateway
 │   └── api/                # Node 22 arm64 Lambda handler
 │       ├── src/crypto.ts   # HMAC-SHA256 sequence signer & constant-time verifier

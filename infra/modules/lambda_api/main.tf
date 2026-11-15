@@ -90,7 +90,7 @@ resource "aws_lambda_function" "api" {
   environment {
     variables = {
       NODE_ENV    = var.environment
-      HMAC_SECRET = random_password.hmac_secret.result
+      HMAC_SECRET = var.hmac_secret != "" ? var.hmac_secret : random_password.hmac_secret.result
     }
   }
 
