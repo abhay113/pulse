@@ -66,12 +66,25 @@ jobs:
     name: Deploy Production
     needs: [build]
     runs-on: ubuntu-latest
+    environment: prod
     permissions:
       contents: read
       id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Verify Configuration Variables
+        run: |
+          echo "Checking GitHub variables..."
+          echo "AWS_REGION: ${{ vars.AWS_REGION }}"
+          echo "TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}"
+          echo "AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}"
+          echo "CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}"
+          if [ -z "${{ vars.AWS_ROLE_TO_ASSUME }}" ]; then
+            echo "::error::AWS_ROLE_TO_ASSUME variable is missing!"
+            exit 1
+          fi
 
       - name: Install pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
