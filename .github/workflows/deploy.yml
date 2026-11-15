@@ -95,6 +95,24 @@ jobs:
           name: web-dist
           path: apps/web/dist
 
+      - name: Debug OIDC Token
+        run: |
+          echo "Fetching GitHub OIDC token..."
+          TOKEN_RES=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com")
+          JWT=$(echo "$TOKEN_RES" | jq -r '.value')
+          echo "JWT received."
+          # Decode JWT header and payload (middle part)
+          PAYLOAD=$(echo "$JWT" | cut -d'.' -f2 | base64 -d 2>/dev/null || echo "$JWT" | cut -d'.' -f2)
+          echo "Decoded JWT Payload:"
+          echo "$PAYLOAD" | jq . || echo "$PAYLOAD"
+          
+          echo "Testing direct STS assume-role-with-web-identity..."
+          aws sts assume-role-with-web-identity \
+            --role-arn "arn:aws:iam::513210346124:role/pulse-prod-github-deployer" \
+            --role-session-name "gh-debug" \
+            --web-identity-token "$JWT" \
+            --region us-east-1 || true
+
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
         with:
