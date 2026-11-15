@@ -1,0 +1,10 @@
+aws_region         = "us-east-1"
+project_name       = "pulse"
+environment        = "dev"
+github_repo        = "your-username/pulse"
+state_bucket_arn   = "arn:aws:s3:::pulse-tfstate-xxxx"
+create_oidc_provider = true
+budget_limit_usd   = 5.0
+alert_email        = "your-email@example.com"
+cors_allow_origins = []
+
