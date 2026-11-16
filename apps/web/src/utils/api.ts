@@ -17,6 +17,19 @@ export interface VerifyResponse {
   message?: string;
 }
 
+export interface ScorePayload {
+  score: number;
+  level: number;
+  playerName?: string;
+}
+
+export interface ScoreResponse {
+  success: boolean;
+  emailSent: boolean;
+  message: string;
+  recipient?: string;
+}
+
 export async function fetchHealth(): Promise<HealthResponse> {
   const res = await fetch('/api/health');
   if (!res.ok) {
@@ -43,6 +56,19 @@ export async function verifyRound(token: string, answer: number[]): Promise<Veri
   if (!res.ok && res.status !== 401) {
     const errorBody = await res.json().catch(() => ({}));
     throw new Error(errorBody.message || `Failed to verify round`);
+  }
+  return res.json();
+}
+
+export async function submitScore(payload: ScorePayload): Promise<ScoreResponse> {
+  const res = await fetch('/api/score', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(errorBody.message || 'Failed to submit score');
   }
   return res.json();
 }

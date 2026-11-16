@@ -18,6 +18,8 @@ module "lambda_api" {
   throttling_burst_limit = 200
   cors_allow_origins     = var.cors_allow_origins
   hmac_secret            = var.hmac_secret
+  ses_from_email         = var.ses_from_email
+  ses_to_email           = var.ses_to_email
   tags                   = local.tags
 }
 

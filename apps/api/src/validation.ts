@@ -16,5 +16,12 @@ export const verifyBodySchema = z.object({
     .max(105, 'Answer exceeds maximum allowed length'),
 });
 
+export const scoreBodySchema = z.object({
+  score: z.number().int().min(0, 'Score must be non-negative'),
+  level: z.number().int().min(1, 'Level must be >= 1'),
+  playerName: z.string().trim().max(50).optional(),
+});
+
 export type RoundQuery = z.infer<typeof roundQuerySchema>;
 export type VerifyBody = z.infer<typeof verifyBodySchema>;
+export type ScoreBody = z.infer<typeof scoreBodySchema>;

@@ -17,6 +17,14 @@ export interface VerifyResponse {
   message?: string;
 }
 
+export interface ScoreResponse {
+  success: boolean;
+  message: string;
+  emailSent: boolean;
+  recipient?: string | undefined;
+  error?: string | undefined;
+}
+
 export interface TokenPayload {
   level: number;
   sequence: number[];

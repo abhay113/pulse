@@ -3,8 +3,8 @@ import { ParticleCanvas } from './components/ParticleCanvas';
 import { NeonPad } from './components/NeonPad';
 import { ScoreBoard, type GameState } from './components/ScoreBoard';
 import { soundFx } from './utils/audio';
-import { fetchRound, verifyRound, fetchHealth, type HealthResponse } from './utils/api';
-import { Play, RotateCcw, AlertTriangle, Activity } from 'lucide-react';
+import { fetchRound, verifyRound, fetchHealth, submitScore, type HealthResponse } from './utils/api';
+import { Play, RotateCcw, AlertTriangle, Activity, Mail } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [level, setLevel] = useState<number>(1);
@@ -27,6 +27,27 @@ export const App: React.FC = () => {
   const [healthStatus, setHealthStatus] = useState<HealthResponse | null>(null);
   const [isSuccessFlash, setIsSuccessFlash] = useState<boolean>(false);
   const [isShake, setIsShake] = useState<boolean>(false);
+  const [emailStatus, setEmailStatus] = useState<string | null>(null);
+
+  const triggerGameOver = useCallback((finalScore: number, finalLevel: number) => {
+    soundFx.playGameOver();
+    setIsShake(true);
+    setTimeout(() => setIsShake(false), 500);
+    setGameState('GAME_OVER');
+
+    setEmailStatus('Dispatching score report to abhaychavan346@gmail.com...');
+    submitScore({ score: finalScore, level: finalLevel })
+      .then((res) => {
+        if (res.emailSent) {
+          setEmailStatus('⚡ Score report sent to abhaychavan346@gmail.com');
+        } else {
+          setEmailStatus('Score saved (email delivery pending SES verification)');
+        }
+      })
+      .catch(() => {
+        setEmailStatus('Score saved locally');
+      });
+  }, []);
 
   // Check backend health on mount
   useEffect(() => {
@@ -112,10 +133,7 @@ export const App: React.FC = () => {
     // Immediate local fail-fast check: if current tap deviates from known sequence
     if (updatedInput[updatedInput.length - 1] !== currentSequence[updatedInput.length - 1]) {
       // Wrong tap immediately ends game
-      soundFx.playGameOver();
-      setIsShake(true);
-      setTimeout(() => setIsShake(false), 500);
-      setGameState('GAME_OVER');
+      triggerGameOver(score, level);
       return;
     }
 
@@ -144,13 +162,10 @@ export const App: React.FC = () => {
             startRound(verification.nextLevel);
           }, 800);
         } else {
-          soundFx.playGameOver();
-          setIsShake(true);
-          setTimeout(() => setIsShake(false), 500);
-          setGameState('GAME_OVER');
+          triggerGameOver(score, level);
         }
       } catch (err) {
-        setGameState('GAME_OVER');
+        triggerGameOver(score, level);
         setErrorMessage(err instanceof Error ? err.message : 'Verification failed');
       }
     }
@@ -188,6 +203,7 @@ export const App: React.FC = () => {
 
   const handleStartGame = () => {
     setScore(0);
+    setEmailStatus(null);
     startRound(1);
   };
 
@@ -280,14 +296,22 @@ export const App: React.FC = () => {
           )}
 
           {gameState === 'GAME_OVER' && (
-            <button
-              type="button"
-              onClick={handleStartGame}
-              className="w-full py-4 rounded-xl font-display font-black text-lg tracking-widest text-white bg-red-600 hover:bg-red-500 active:scale-[0.99] transition shadow-lg flex items-center justify-center gap-2"
-            >
-              <RotateCcw className="w-5 h-5" />
-              PLAY AGAIN
-            </button>
+            <div className="w-full flex flex-col gap-3">
+              {emailStatus && (
+                <div className="w-full p-3 bg-cyan-950/40 border border-cyan-500/40 rounded-xl flex items-center justify-center gap-2 text-xs text-cyan-300 font-mono text-center">
+                  <Mail className="w-4 h-4 text-cyan-400 shrink-0 animate-pulse" />
+                  <span>{emailStatus}</span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleStartGame}
+                className="w-full py-4 rounded-xl font-display font-black text-lg tracking-widest text-white bg-red-600 hover:bg-red-500 active:scale-[0.99] transition shadow-lg flex items-center justify-center gap-2"
+              >
+                <RotateCcw className="w-5 h-5" />
+                PLAY AGAIN
+              </button>
+            </div>
           )}
         </div>
       </main>

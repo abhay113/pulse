@@ -1,10 +1,11 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { randomInt, randomUUID } from 'node:crypto';
 import { logger } from './logger.js';
-import { roundQuerySchema, verifyBodySchema } from './validation.js';
+import { roundQuerySchema, verifyBodySchema, scoreBodySchema } from './validation.js';
 import { signToken, verifyToken } from './crypto.js';
 import { gameRepository } from './db/repository.js';
-import type { HealthResponse, RoundResponse, VerifyResponse } from './types.js';
+import { sendScoreEmail } from './email.js';
+import type { HealthResponse, RoundResponse, VerifyResponse, ScoreResponse } from './types.js';
 
 const APP_VERSION = process.env.APP_VERSION || '1.0.0';
 const TOKEN_TTL_MS = parseInt(process.env.TOKEN_TTL_MS || '300000', 10); // 5 minutes validity
@@ -155,6 +156,54 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         nextLevel: 1,
         message: 'Incorrect sequence. Try again!',
       };
+      return jsonResponse(200, response);
+    }
+
+    // POST /api/score
+    if (path === '/api/score' && method === 'POST') {
+      let rawBody = event.body || '{}';
+      if (event.isBase64Encoded) {
+        rawBody = Buffer.from(rawBody, 'base64').toString('utf8');
+      }
+
+      let parsedBody: unknown;
+      try {
+        parsedBody = JSON.parse(rawBody);
+      } catch {
+        return jsonResponse(400, { error: 'Bad Request', message: 'Invalid JSON body' });
+      }
+
+      const parseResult = scoreBodySchema.safeParse(parsedBody);
+      if (!parseResult.success) {
+        logger.warn('Invalid score payload', {
+          requestId,
+          issues: parseResult.error.issues,
+        });
+        return jsonResponse(400, {
+          error: 'Bad Request',
+          issues: parseResult.error.issues.map((i) => i.message),
+        });
+      }
+
+      const { score, level, playerName } = parseResult.data;
+      logger.info('Processing game score submission', { requestId, score, level, playerName });
+
+      const emailResult = await sendScoreEmail({
+        score,
+        level,
+        playerName,
+      });
+
+      const response: ScoreResponse = {
+        success: true,
+        emailSent: emailResult.sent,
+        message: emailResult.sent
+          ? 'Score report dispatched to email'
+          : 'Score recorded (email delivery pending SES verification)',
+        recipient: process.env.SES_TO_EMAIL || 'abhaychavan346@gmail.com',
+        ...(emailResult.error ? { error: emailResult.error } : {}),
+      };
+
       return jsonResponse(200, response);
     }
 

@@ -6,5 +6,7 @@ state_bucket_arn   = "arn:aws:s3:::pulse-tfstate-xxxx"
 create_oidc_provider = true
 budget_limit_usd   = 10.0
 alert_email        = "your-email@example.com"
+ses_from_email     = "pulse@bevdamanus.in"
+ses_to_email       = "abhaychavan346@gmail.com"
 cors_allow_origins = []
 

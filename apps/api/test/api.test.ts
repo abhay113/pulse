@@ -169,6 +169,41 @@ describe('Pulse API Handler', () => {
     expect(verifyRes.statusCode).toBe(401);
   });
 
+  it('POST /api/score accepts valid score submission and returns success', async () => {
+    const event = createMockEvent({
+      method: 'POST',
+      path: '/api/score',
+      body: {
+        score: 1250,
+        level: 5,
+        playerName: 'Tester',
+      },
+    });
+    const response = (await handler(event)) as { statusCode: number; body: string };
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.success).toBe(true);
+    expect(body.emailSent).toBe(true);
+    expect(body.recipient).toBe('abhaychavan346@gmail.com');
+  });
+
+  it('POST /api/score rejects negative score or invalid payload', async () => {
+    const event = createMockEvent({
+      method: 'POST',
+      path: '/api/score',
+      body: {
+        score: -100,
+        level: 0,
+      },
+    });
+    const response = (await handler(event)) as { statusCode: number; body: string };
+
+    expect(response.statusCode).toBe(400);
+    const body = JSON.parse(response.body);
+    expect(body.error).toBe('Bad Request');
+  });
+
   it('Returns 404 for unknown endpoints', async () => {
     const event = createMockEvent({ method: 'GET', path: '/api/nonexistent' });
     const response = (await handler(event)) as { statusCode: number; body: string };

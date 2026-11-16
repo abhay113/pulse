@@ -73,6 +73,23 @@ resource "aws_iam_role_policy" "lambda_logging" {
   policy = data.aws_iam_policy_document.lambda_logging.json
 }
 
+data "aws_iam_policy_document" "lambda_ses" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_ses" {
+  name   = "${var.project_name}-${var.environment}-lambda-ses"
+  role   = aws_iam_role.lambda.id
+  policy = data.aws_iam_policy_document.lambda_ses.json
+}
+
 # 5. AWS Lambda Function (Node 22 arm64)
 resource "aws_lambda_function" "api" {
   function_name                  = "${var.project_name}-${var.environment}-api"
@@ -89,14 +106,17 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      NODE_ENV    = var.environment
-      HMAC_SECRET = var.hmac_secret != "" ? var.hmac_secret : random_password.hmac_secret.result
+      NODE_ENV       = var.environment
+      HMAC_SECRET    = var.hmac_secret != "" ? var.hmac_secret : random_password.hmac_secret.result
+      SES_FROM_EMAIL = var.ses_from_email
+      SES_TO_EMAIL   = var.ses_to_email
     }
   }
 
   depends_on = [
     aws_cloudwatch_log_group.lambda,
     aws_iam_role_policy.lambda_logging,
+    aws_iam_role_policy.lambda_ses,
   ]
 
   tags = var.tags

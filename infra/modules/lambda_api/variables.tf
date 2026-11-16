@@ -56,6 +56,18 @@ variable "cors_allow_origins" {
   default     = []
 }
 
+variable "ses_from_email" {
+  type        = string
+  description = "Verified sender email for SES score notifications"
+  default     = "pulse@bevdamanus.in"
+}
+
+variable "ses_to_email" {
+  type        = string
+  description = "Target recipient email for game score reports"
+  default     = "abhaychavan346@gmail.com"
+}
+
 variable "hmac_secret" {
   type        = string
   description = "Optional custom HMAC signing secret (if omitted, a cryptographically secure random 32-character string is generated)"
