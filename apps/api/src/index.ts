@@ -341,24 +341,30 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         });
       }
 
-      const { score, level, playerName, sessionToken, recipientEmail } = parseResult.data;
+      const { score, level, playerName, sessionToken } = parseResult.data;
 
-      // Resolve recipient email:
-      // 1. Authenticated session token has highest priority
-      // 2. Explicit recipient email provided in payload
-      // 3. Fallback to default admin notification address
-      let targetEmail = process.env.SES_TO_EMAIL || 'abhaychavan346@gmail.com';
-
-      if (sessionToken) {
-        const sess = verifyPayload<UserSessionPayload>(sessionToken);
-        if (sess.valid && sess.payload && sess.payload.sub === 'user_session') {
-          targetEmail = sess.payload.email;
-        }
-      } else if (recipientEmail) {
-        targetEmail = recipientEmail.toLowerCase();
+      // Only authenticated players with a verified session token receive score emails
+      if (!sessionToken) {
+        logger.info('Guest session score - no email dispatched', { requestId, score, level });
+        return jsonResponse(200, {
+          success: true,
+          emailSent: false,
+          message: 'Score recorded (guest mode - no email sent)',
+        });
       }
 
-      logger.info('Processing game score submission', {
+      const sess = verifyPayload<UserSessionPayload>(sessionToken);
+      if (!sess.valid || !sess.payload || sess.payload.sub !== 'user_session') {
+        logger.warn('Score submission with invalid or expired session token', { requestId });
+        return jsonResponse(401, {
+          success: false,
+          emailSent: false,
+          message: 'Session has expired. Please log in again to receive score reports.',
+        });
+      }
+
+      const targetEmail = sess.payload.email;
+      logger.info('Processing authenticated game score submission', {
         requestId,
         score,
         level,
@@ -378,7 +384,7 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         emailSent: emailResult.sent,
         message: emailResult.sent
           ? `Score report dispatched to ${targetEmail}`
-          : 'Score recorded (email delivery pending SES verification)',
+          : 'Score recorded (email delivery skipped)',
         recipient: targetEmail,
         ...(emailResult.error ? { error: emailResult.error } : {}),
       };

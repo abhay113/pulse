@@ -169,14 +169,14 @@ describe('Pulse API Handler', () => {
     expect(verifyRes.statusCode).toBe(401);
   });
 
-  it('POST /api/score accepts valid score submission and returns success', async () => {
+  it('POST /api/score in guest mode (no sessionToken) records score without sending email', async () => {
     const event = createMockEvent({
       method: 'POST',
       path: '/api/score',
       body: {
         score: 1250,
         level: 5,
-        playerName: 'Tester',
+        playerName: 'GuestPlayer',
       },
     });
     const response = (await handler(event)) as { statusCode: number; body: string };
@@ -184,8 +184,7 @@ describe('Pulse API Handler', () => {
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.body);
     expect(body.success).toBe(true);
-    expect(body.emailSent).toBe(true);
-    expect(body.recipient).toBe('abhaychavan346@gmail.com');
+    expect(body.emailSent).toBe(false);
   });
 
   it('POST /api/score rejects negative score or invalid payload', async () => {

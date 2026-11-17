@@ -46,13 +46,20 @@ export const App: React.FC = () => {
     return null;
   });
 
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  // Show login screen by default if user is not authenticated
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return !localStorage.getItem('pulse_session_token');
+    }
+    return false;
+  });
 
   const handleLoginSuccess = (newUser: { email: string }, newSessionToken: string) => {
     setUser(newUser);
     setSessionToken(newSessionToken);
     localStorage.setItem('pulse_user', JSON.stringify(newUser));
     localStorage.setItem('pulse_session_token', newSessionToken);
+    setIsLoginModalOpen(false);
   };
 
   const handleLogout = () => {
@@ -62,31 +69,38 @@ export const App: React.FC = () => {
     localStorage.removeItem('pulse_session_token');
   };
 
+  const handlePlayAsGuest = () => {
+    setIsLoginModalOpen(false);
+  };
+
   const triggerGameOver = useCallback((finalScore: number, finalLevel: number) => {
     soundFx.playGameOver();
     setIsShake(true);
     setTimeout(() => setIsShake(false), 500);
     setGameState('GAME_OVER');
 
-    const targetEmail = user?.email || 'abhaychavan346@gmail.com';
-    setEmailStatus(`Dispatching score report to ${targetEmail}...`);
-
-    submitScore({
-      score: finalScore,
-      level: finalLevel,
-      sessionToken: sessionToken || undefined,
-      recipientEmail: user?.email || undefined,
-    })
-      .then((res) => {
-        if (res.emailSent) {
-          setEmailStatus(`⚡ Score report sent to ${res.recipient || targetEmail}`);
-        } else {
-          setEmailStatus('Score saved (email delivery pending)');
-        }
+    // ONLY logged-in players receive score emails
+    if (user && sessionToken) {
+      setEmailStatus(`Dispatching score report to ${user.email}...`);
+      submitScore({
+        score: finalScore,
+        level: finalLevel,
+        sessionToken,
       })
-      .catch(() => {
-        setEmailStatus('Score saved locally');
-      });
+        .then((res) => {
+          if (res.emailSent) {
+            setEmailStatus(`⚡ Score report sent to ${res.recipient || user.email}`);
+          } else {
+            setEmailStatus('Score saved (email delivery skipped)');
+          }
+        })
+        .catch(() => {
+          setEmailStatus('Score saved locally');
+        });
+    } else {
+      // Guest mode: zero emails triggered
+      setEmailStatus(null);
+    }
   }, [user, sessionToken]);
 
   // Check backend health on mount
@@ -348,14 +362,19 @@ export const App: React.FC = () => {
               )}
 
               {!user && (
-                <button
-                  type="button"
-                  onClick={() => setIsLoginModalOpen(true)}
-                  className="w-full py-2.5 px-3 bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/40 rounded-xl flex items-center justify-center gap-2 text-xs text-purple-200 font-mono transition"
-                >
-                  <UserPlus className="w-3.5 h-3.5 text-purple-400" />
-                  <span>Log in with OTP to email future scores to you</span>
-                </button>
+                <div className="w-full p-3 bg-gray-900/80 border border-gray-800 rounded-xl flex items-center justify-between text-xs font-mono">
+                  <span className="text-gray-400 flex items-center gap-1.5">
+                    <UserPlus className="w-3.5 h-3.5 text-amber-400" />
+                    Guest Mode (No email sent)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsLoginModalOpen(true)}
+                    className="text-cyan-400 hover:text-cyan-300 font-bold underline transition"
+                  >
+                    Log in with OTP
+                  </button>
+                </div>
               )}
 
               <button
@@ -391,6 +410,7 @@ export const App: React.FC = () => {
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
         onLoginSuccess={handleLoginSuccess}
+        onPlayAsGuest={handlePlayAsGuest}
       />
     </div>
   );

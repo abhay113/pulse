@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { X, Mail, KeyRound, Loader2, ArrowRight, RotateCcw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { X, Mail, KeyRound, Loader2, ArrowRight, RotateCcw, AlertTriangle, CheckCircle2, Gamepad2 } from 'lucide-react';
 import { sendOtp, verifyOtp } from '../utils/api';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLoginSuccess: (user: { email: string }, sessionToken: string) => void;
+  onPlayAsGuest?: () => void;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
+export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess, onPlayAsGuest }) => {
   const [step, setStep] = useState<'EMAIL' | 'OTP'>('EMAIL');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -168,6 +169,23 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
                 </>
               )}
             </button>
+
+            <div className="relative my-4 flex items-center justify-center">
+              <div className="border-t border-gray-800 w-full" />
+              <span className="bg-[#0d121f] px-3 text-[10px] uppercase tracking-widest text-gray-500 font-mono">
+                OR
+              </span>
+              <div className="border-t border-gray-800 w-full" />
+            </div>
+
+            <button
+              type="button"
+              onClick={onPlayAsGuest || onClose}
+              className="w-full py-3.5 rounded-xl font-display font-bold text-xs tracking-widest text-cyan-300 hover:text-white bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-500/40 hover:border-cyan-400 active:scale-[0.99] transition flex items-center justify-center gap-2 shadow-sm"
+            >
+              <Gamepad2 className="w-4 h-4 text-cyan-400" />
+              <span>PLAY AS GUEST (NO EMAIL / NO OTP)</span>
+            </button>
           </form>
         ) : (
           /* Step 2: OTP Form */
@@ -243,3 +261,4 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
     </div>
   );
 };
+
