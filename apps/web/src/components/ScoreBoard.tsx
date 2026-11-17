@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, ShieldCheck, Zap } from 'lucide-react';
+import { Volume2, VolumeX, ShieldCheck, Zap, User, LogOut } from 'lucide-react';
 
 export type GameState =
   'IDLE' | 'LOADING' | 'PLAYBACK' | 'PLAYER_INPUT' | 'VERIFYING' | 'ROUND_SUCCESS' | 'GAME_OVER';
@@ -13,6 +13,9 @@ interface ScoreBoardProps {
   onToggleSound: () => void;
   playerInputCount: number;
   totalSequenceLength: number;
+  user?: { email: string } | null;
+  onOpenLogin?: () => void;
+  onLogout?: () => void;
 }
 
 export const ScoreBoard: React.FC<ScoreBoardProps> = ({
@@ -24,6 +27,9 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({
   onToggleSound,
   playerInputCount,
   totalSequenceLength,
+  user,
+  onOpenLogin,
+  onLogout,
 }) => {
   const getStatusBadge = () => {
     switch (gameState) {
@@ -71,19 +77,48 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={onToggleSound}
-          className="p-2 rounded-lg bg-gray-800/80 hover:bg-gray-700/80 text-gray-300 hover:text-white transition border border-gray-700"
-          aria-label={soundEnabled ? 'Mute audio' : 'Unmute audio'}
-          title={soundEnabled ? 'Audio On' : 'Audio Muted'}
-        >
-          {soundEnabled ? (
-            <Volume2 className="w-4 h-4 text-cyan-400" />
+        <div className="flex items-center gap-2">
+          {user ? (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-900 border border-cyan-500/30 text-xs font-mono text-cyan-300">
+              <User className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="max-w-[120px] truncate" title={user.email}>
+                {user.email.split('@')[0]}
+              </span>
+              <button
+                type="button"
+                onClick={onLogout}
+                className="ml-1 p-0.5 text-gray-400 hover:text-red-400 transition"
+                title="Log out"
+              >
+                <LogOut className="w-3 h-3" />
+              </button>
+            </div>
           ) : (
-            <VolumeX className="w-4 h-4 text-gray-400" />
+            <button
+              type="button"
+              onClick={onOpenLogin}
+              className="px-2.5 py-1 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/40 text-xs font-mono text-cyan-300 flex items-center gap-1.5 transition shadow-sm"
+              title="Log in with email OTP"
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>LOGIN</span>
+            </button>
           )}
-        </button>
+
+          <button
+            type="button"
+            onClick={onToggleSound}
+            className="p-2 rounded-lg bg-gray-800/80 hover:bg-gray-700/80 text-gray-300 hover:text-white transition border border-gray-700"
+            aria-label={soundEnabled ? 'Mute audio' : 'Unmute audio'}
+            title={soundEnabled ? 'Audio On' : 'Audio Muted'}
+          >
+            {soundEnabled ? (
+              <Volume2 className="w-4 h-4 text-cyan-400" />
+            ) : (
+              <VolumeX className="w-4 h-4 text-gray-400" />
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center mb-3">

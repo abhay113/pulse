@@ -21,6 +21,8 @@ export interface ScorePayload {
   score: number;
   level: number;
   playerName?: string;
+  sessionToken?: string;
+  recipientEmail?: string;
 }
 
 export interface ScoreResponse {
@@ -28,6 +30,50 @@ export interface ScoreResponse {
   emailSent: boolean;
   message: string;
   recipient?: string;
+}
+
+export interface SendOtpResponse {
+  success: boolean;
+  message: string;
+  otpToken?: string;
+  expiresInSeconds?: number;
+  error?: string;
+}
+
+export interface VerifyOtpResponse {
+  success: boolean;
+  message: string;
+  sessionToken?: string;
+  user?: {
+    email: string;
+  };
+  error?: string;
+}
+
+export async function sendOtp(email: string): Promise<SendOtpResponse> {
+  const res = await fetch('/api/auth/send-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || `Failed to send verification code (HTTP ${res.status})`);
+  }
+  return data;
+}
+
+export async function verifyOtp(email: string, otp: string, otpToken: string): Promise<VerifyOtpResponse> {
+  const res = await fetch('/api/auth/verify-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, otp, otpToken }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || `Failed to verify code (HTTP ${res.status})`);
+  }
+  return data;
 }
 
 export async function fetchHealth(): Promise<HealthResponse> {

@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, createHash, timingSafeEqual, randomInt, randomBytes } from 'node:crypto';
 import type { TokenPayload } from './types.js';
 
 const DEFAULT_SECRET = 'pulse-dev-secret-fallback-key-32-chars-long';
@@ -23,7 +23,13 @@ export function base64UrlDecode(str: string): string {
   return Buffer.from(b64, 'base64').toString('utf8');
 }
 
-export function signToken(payload: TokenPayload, secret: string = getSecret()): string {
+/**
+ * Sign an arbitrary JSON payload with HMAC-SHA256
+ */
+export function signPayload<T extends Record<string, unknown>>(
+  payload: T,
+  secret: string = getSecret(),
+): string {
   const payloadJson = JSON.stringify(payload);
   const payloadB64 = base64UrlEncode(payloadJson);
   const hmac = createHmac('sha256', secret);
@@ -32,10 +38,13 @@ export function signToken(payload: TokenPayload, secret: string = getSecret()): 
   return `${payloadB64}.${sigB64}`;
 }
 
-export function verifyToken(
+/**
+ * Verify and decode an HMAC-SHA256 signed payload
+ */
+export function verifyPayload<T extends Record<string, unknown>>(
   token: string,
   secret: string = getSecret(),
-): { valid: boolean; payload?: TokenPayload; reason?: string } {
+): { valid: boolean; payload?: T; reason?: string } {
   const parts = token.split('.');
   if (parts.length !== 2) {
     return { valid: false, reason: 'Malformed token structure' };
@@ -46,7 +55,6 @@ export function verifyToken(
     return { valid: false, reason: 'Missing token components' };
   }
 
-  // Recalculate signature
   const hmac = createHmac('sha256', secret);
   hmac.update(payloadB64);
   const expectedSigB64 = hmac
@@ -64,18 +72,79 @@ export function verifyToken(
 
   try {
     const payloadJson = base64UrlDecode(payloadB64);
-    const payload = JSON.parse(payloadJson) as TokenPayload;
+    const payload = JSON.parse(payloadJson) as T;
 
-    if (typeof payload.exp !== 'number' || payload.exp < Date.now()) {
+    if ('exp' in payload && typeof payload.exp === 'number' && payload.exp < Date.now()) {
       return { valid: false, reason: 'Token has expired' };
-    }
-
-    if (!Array.isArray(payload.sequence) || typeof payload.level !== 'number') {
-      return { valid: false, reason: 'Invalid token payload format' };
     }
 
     return { valid: true, payload };
   } catch {
     return { valid: false, reason: 'Corrupt payload decoding' };
   }
+}
+
+/**
+ * Legacy round token signer
+ */
+export function signToken(payload: TokenPayload, secret: string = getSecret()): string {
+  return signPayload<TokenPayload>(payload, secret);
+}
+
+/**
+ * Legacy round token verifier
+ */
+export function verifyToken(
+  token: string,
+  secret: string = getSecret(),
+): { valid: boolean; payload?: TokenPayload; reason?: string } {
+  const res = verifyPayload<TokenPayload>(token, secret);
+  if (!res.valid || !res.payload) {
+    return res;
+  }
+  if (!Array.isArray(res.payload.sequence) || typeof res.payload.level !== 'number') {
+    return { valid: false, reason: 'Invalid token payload format' };
+  }
+  return res;
+}
+
+/**
+ * Generates a cryptographically random 6-digit numeric OTP.
+ */
+export function generateOtp(): string {
+  return String(randomInt(100000, 1000000));
+}
+
+/**
+ * Generates a random salt.
+ */
+export function generateSalt(): string {
+  return randomBytes(16).toString('hex');
+}
+
+/**
+ * Computes a SHA-256 hash of an OTP bound to the user's email and salt.
+ */
+export function hashOtp(otp: string, salt: string, email: string): string {
+  return createHash('sha256')
+    .update(`${otp.trim()}:${salt}:${email.trim().toLowerCase()}`)
+    .digest('hex');
+}
+
+/**
+ * Constant-time comparison between submitted OTP and the expected hash.
+ */
+export function verifyOtpHash(
+  otp: string,
+  salt: string,
+  email: string,
+  expectedHash: string,
+): boolean {
+  const computed = hashOtp(otp, salt, email);
+  const compBuf = Buffer.from(computed);
+  const expBuf = Buffer.from(expectedHash);
+  if (compBuf.length !== expBuf.length) {
+    return false;
+  }
+  return timingSafeEqual(compBuf, expBuf);
 }

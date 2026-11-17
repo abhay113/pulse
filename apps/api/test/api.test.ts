@@ -204,6 +204,102 @@ describe('Pulse API Handler', () => {
     expect(body.error).toBe('Bad Request');
   });
 
+  it('POST /api/auth/send-otp sends OTP and returns otpToken', async () => {
+    const event = createMockEvent({
+      method: 'POST',
+      path: '/api/auth/send-otp',
+      body: { email: 'player@example.com' },
+    });
+    const response = (await handler(event)) as { statusCode: number; body: string };
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.success).toBe(true);
+    expect(typeof body.otpToken).toBe('string');
+    expect(body.expiresInSeconds).toBe(600);
+  });
+
+  it('POST /api/auth/verify-otp validates correct OTP and returns session token', async () => {
+    // Generate valid OTP token manually using helper
+    const { generateSalt, hashOtp, signPayload } = await import('../src/crypto.js');
+    const salt = generateSalt();
+    const otp = '654321';
+    const email = 'player@example.com';
+    const otpHash = hashOtp(otp, salt, email);
+    const otpToken = signPayload({
+      email,
+      salt,
+      otpHash,
+      exp: Date.now() + 600000,
+      sub: 'otp_verification',
+    });
+
+    const event = createMockEvent({
+      method: 'POST',
+      path: '/api/auth/verify-otp',
+      body: { email, otp, otpToken },
+    });
+    const response = (await handler(event)) as { statusCode: number; body: string };
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.success).toBe(true);
+    expect(typeof body.sessionToken).toBe('string');
+    expect(body.user.email).toBe('player@example.com');
+  });
+
+  it('POST /api/auth/verify-otp rejects incorrect OTP code', async () => {
+    const { generateSalt, hashOtp, signPayload } = await import('../src/crypto.js');
+    const salt = generateSalt();
+    const otp = '654321';
+    const email = 'player@example.com';
+    const otpHash = hashOtp(otp, salt, email);
+    const otpToken = signPayload({
+      email,
+      salt,
+      otpHash,
+      exp: Date.now() + 600000,
+      sub: 'otp_verification',
+    });
+
+    const event = createMockEvent({
+      method: 'POST',
+      path: '/api/auth/verify-otp',
+      body: { email, otp: '111111', otpToken },
+    });
+    const response = (await handler(event)) as { statusCode: number; body: string };
+
+    expect(response.statusCode).toBe(401);
+    const body = JSON.parse(response.body);
+    expect(body.success).toBe(false);
+  });
+
+  it('POST /api/score routes score report to logged-in user session email', async () => {
+    const { signPayload } = await import('../src/crypto.js');
+    const sessionToken = signPayload({
+      email: 'customplayer@domain.com',
+      exp: Date.now() + 3600000,
+      sub: 'user_session',
+    });
+
+    const event = createMockEvent({
+      method: 'POST',
+      path: '/api/score',
+      body: {
+        score: 2400,
+        level: 8,
+        sessionToken,
+      },
+    });
+    const response = (await handler(event)) as { statusCode: number; body: string };
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.success).toBe(true);
+    expect(body.emailSent).toBe(true);
+    expect(body.recipient).toBe('customplayer@domain.com');
+  });
+
   it('Returns 404 for unknown endpoints', async () => {
     const event = createMockEvent({ method: 'GET', path: '/api/nonexistent' });
     const response = (await handler(event)) as { statusCode: number; body: string };

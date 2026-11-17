@@ -1,11 +1,35 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { randomInt, randomUUID } from 'node:crypto';
 import { logger } from './logger.js';
-import { roundQuerySchema, verifyBodySchema, scoreBodySchema } from './validation.js';
-import { signToken, verifyToken } from './crypto.js';
+import {
+  roundQuerySchema,
+  verifyBodySchema,
+  scoreBodySchema,
+  sendOtpSchema,
+  verifyOtpSchema,
+} from './validation.js';
+import {
+  signToken,
+  verifyToken,
+  signPayload,
+  verifyPayload,
+  generateOtp,
+  generateSalt,
+  hashOtp,
+  verifyOtpHash,
+} from './crypto.js';
 import { gameRepository } from './db/repository.js';
-import { sendScoreEmail } from './email.js';
-import type { HealthResponse, RoundResponse, VerifyResponse, ScoreResponse } from './types.js';
+import { sendScoreEmail, sendOtpEmail } from './email.js';
+import type {
+  HealthResponse,
+  RoundResponse,
+  VerifyResponse,
+  ScoreResponse,
+  SendOtpResponse,
+  VerifyOtpResponse,
+  OtpTokenPayload,
+  UserSessionPayload,
+} from './types.js';
 
 const APP_VERSION = process.env.APP_VERSION || '1.0.0';
 const TOKEN_TTL_MS = parseInt(process.env.TOKEN_TTL_MS || '300000', 10); // 5 minutes validity
@@ -159,6 +183,138 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
       return jsonResponse(200, response);
     }
 
+    // POST /api/auth/send-otp
+    if (path === '/api/auth/send-otp' && method === 'POST') {
+      let rawBody = event.body || '{}';
+      if (event.isBase64Encoded) {
+        rawBody = Buffer.from(rawBody, 'base64').toString('utf8');
+      }
+
+      let parsedBody: unknown;
+      try {
+        parsedBody = JSON.parse(rawBody);
+      } catch {
+        return jsonResponse(400, { error: 'Bad Request', message: 'Invalid JSON body' });
+      }
+
+      const parseResult = sendOtpSchema.safeParse(parsedBody);
+      if (!parseResult.success) {
+        logger.warn('Invalid send-otp payload', {
+          requestId,
+          issues: parseResult.error.issues,
+        });
+        return jsonResponse(400, {
+          error: 'Bad Request',
+          issues: parseResult.error.issues.map((i) => i.message),
+        });
+      }
+
+      const email = parseResult.data.email.toLowerCase();
+      const otp = generateOtp();
+      const salt = generateSalt();
+      const otpHash = hashOtp(otp, salt, email);
+      const exp = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+      const otpToken = signPayload<OtpTokenPayload>({
+        email,
+        salt,
+        otpHash,
+        exp,
+        sub: 'otp_verification',
+      });
+
+      const emailResult = await sendOtpEmail(email, otp);
+
+      const response: SendOtpResponse = {
+        success: true,
+        message: emailResult.sent
+          ? `Verification code dispatched to ${email}`
+          : 'Verification code generated (email send skipped)',
+        otpToken,
+        expiresInSeconds: 600,
+        ...(emailResult.error ? { error: emailResult.error } : {}),
+      };
+
+      logger.info('Dispatched OTP access code', { requestId, recipient: email });
+      return jsonResponse(200, response);
+    }
+
+    // POST /api/auth/verify-otp
+    if (path === '/api/auth/verify-otp' && method === 'POST') {
+      let rawBody = event.body || '{}';
+      if (event.isBase64Encoded) {
+        rawBody = Buffer.from(rawBody, 'base64').toString('utf8');
+      }
+
+      let parsedBody: unknown;
+      try {
+        parsedBody = JSON.parse(rawBody);
+      } catch {
+        return jsonResponse(400, { error: 'Bad Request', message: 'Invalid JSON body' });
+      }
+
+      const parseResult = verifyOtpSchema.safeParse(parsedBody);
+      if (!parseResult.success) {
+        logger.warn('Invalid verify-otp payload', {
+          requestId,
+          issues: parseResult.error.issues,
+        });
+        return jsonResponse(400, {
+          error: 'Bad Request',
+          issues: parseResult.error.issues.map((i) => i.message),
+        });
+      }
+
+      const { email, otp, otpToken } = parseResult.data;
+      const normalizedEmail = email.toLowerCase();
+      const tokenRes = verifyPayload<OtpTokenPayload>(otpToken);
+
+      if (!tokenRes.valid || !tokenRes.payload || tokenRes.payload.sub !== 'otp_verification') {
+        logger.warn('OTP token verification failed', {
+          requestId,
+          reason: tokenRes.reason,
+        });
+        return jsonResponse(401, {
+          success: false,
+          message: tokenRes.reason || 'Verification code has expired. Please request a new code.',
+        });
+      }
+
+      if (tokenRes.payload.email.toLowerCase() !== normalizedEmail) {
+        return jsonResponse(401, {
+          success: false,
+          message: 'Email address does not match verification session',
+        });
+      }
+
+      const isMatch = verifyOtpHash(otp, tokenRes.payload.salt, normalizedEmail, tokenRes.payload.otpHash);
+      if (!isMatch) {
+        logger.warn('Incorrect OTP code submitted', { requestId, email: normalizedEmail });
+        return jsonResponse(401, {
+          success: false,
+          message: 'Incorrect 6-digit verification code. Please check and try again.',
+        });
+      }
+
+      // 30-day authenticated session token
+      const sessionExp = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      const sessionToken = signPayload<UserSessionPayload>({
+        email: normalizedEmail,
+        exp: sessionExp,
+        sub: 'user_session',
+      });
+
+      const response: VerifyOtpResponse = {
+        success: true,
+        message: 'Authentication successful',
+        sessionToken,
+        user: { email: normalizedEmail },
+      };
+
+      logger.info('Player authenticated successfully', { requestId, email: normalizedEmail });
+      return jsonResponse(200, response);
+    }
+
     // POST /api/score
     if (path === '/api/score' && method === 'POST') {
       let rawBody = event.body || '{}';
@@ -185,22 +341,45 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         });
       }
 
-      const { score, level, playerName } = parseResult.data;
-      logger.info('Processing game score submission', { requestId, score, level, playerName });
+      const { score, level, playerName, sessionToken, recipientEmail } = parseResult.data;
+
+      // Resolve recipient email:
+      // 1. Authenticated session token has highest priority
+      // 2. Explicit recipient email provided in payload
+      // 3. Fallback to default admin notification address
+      let targetEmail = process.env.SES_TO_EMAIL || 'abhaychavan346@gmail.com';
+
+      if (sessionToken) {
+        const sess = verifyPayload<UserSessionPayload>(sessionToken);
+        if (sess.valid && sess.payload && sess.payload.sub === 'user_session') {
+          targetEmail = sess.payload.email;
+        }
+      } else if (recipientEmail) {
+        targetEmail = recipientEmail.toLowerCase();
+      }
+
+      logger.info('Processing game score submission', {
+        requestId,
+        score,
+        level,
+        playerName,
+        targetEmail,
+      });
 
       const emailResult = await sendScoreEmail({
         score,
         level,
         playerName,
+        recipientEmail: targetEmail,
       });
 
       const response: ScoreResponse = {
         success: true,
         emailSent: emailResult.sent,
         message: emailResult.sent
-          ? 'Score report dispatched to email'
+          ? `Score report dispatched to ${targetEmail}`
           : 'Score recorded (email delivery pending SES verification)',
-        recipient: process.env.SES_TO_EMAIL || 'abhaychavan346@gmail.com',
+        recipient: targetEmail,
         ...(emailResult.error ? { error: emailResult.error } : {}),
       };
 

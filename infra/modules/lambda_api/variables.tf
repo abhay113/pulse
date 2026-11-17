@@ -59,7 +59,7 @@ variable "cors_allow_origins" {
 variable "ses_from_email" {
   type        = string
   description = "Verified sender email for SES score notifications"
-  default     = "pulse@bevdamanus.in"
+  default     = "noreply@bevdamanus.in"
 }
 
 variable "ses_to_email" {

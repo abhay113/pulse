@@ -2,8 +2,15 @@ import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { logger } from './logger.js';
 
 const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
-const SES_FROM_EMAIL = process.env.SES_FROM_EMAIL || 'pulse@bevdamanus.in';
 const SES_TO_EMAIL = process.env.SES_TO_EMAIL || 'abhaychavan346@gmail.com';
+
+export function getSenderEmail(): string {
+  const raw = process.env.SES_FROM_EMAIL || 'noreply@bevdamanus.in';
+  if (raw.includes('<') && raw.includes('>')) {
+    return raw;
+  }
+  return `Pulse ⚡ <${raw}>`;
+}
 
 const sesClient = new SESClient({ region: AWS_REGION });
 
@@ -208,11 +215,216 @@ Dispatched via Amazon SES on AWS Lambda`;
 }
 
 /**
+ * Builds a styled cyberpunk neon HTML email template for Pulse OTP access codes.
+ */
+function buildOtpHtmlTemplate(email: string, otp: string): string {
+  const timestamp = new Date().toUTCString();
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pulse Security Access Code</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #080a10;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    .container {
+      max-width: 560px;
+      margin: 30px auto;
+      background: #0f1422;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 240, 255, 0.15);
+    }
+    .header {
+      background: linear-gradient(135deg, #0d1326 0%, #1e1233 100%);
+      padding: 30px 24px;
+      text-align: center;
+      border-bottom: 2px solid #00f0ff;
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: #00f0ff;
+      text-transform: uppercase;
+      margin: 0;
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+    }
+    .tagline {
+      color: #94a3b8;
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+    .content {
+      padding: 36px 28px;
+      text-align: center;
+    }
+    .otp-card {
+      background: #090d16;
+      border: 2px solid #00f0ff;
+      border-radius: 12px;
+      padding: 24px 16px;
+      margin: 26px auto;
+      display: inline-block;
+      min-width: 260px;
+      box-shadow: 0 0 24px rgba(0, 240, 255, 0.25);
+    }
+    .otp-value {
+      font-size: 44px;
+      font-weight: 900;
+      color: #00f0ff;
+      letter-spacing: 12px;
+      font-family: 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
+      margin: 0;
+      text-indent: 12px;
+      text-shadow: 0 0 16px rgba(0, 240, 255, 0.5);
+    }
+    .info-box {
+      background: #131b2e;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 14px 18px;
+      text-align: left;
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin: 20px 0 10px;
+    }
+    .footer {
+      border-top: 1px solid #1e293b;
+      padding: 20px 24px;
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+      background: #080c14;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 class="logo">⚡ PULSE</h1>
+      <div class="tagline">Access Verification Code</div>
+    </div>
+    <div class="content">
+      <p style="margin: 0 0 12px; color: #cbd5e1; font-size: 15px;">
+        A single-use security access code was requested for:
+      </p>
+      <div style="font-weight: 700; color: #ffffff; font-size: 16px; margin-bottom: 20px;">
+        ${email}
+      </div>
+
+      <div class="otp-card">
+        <div class="otp-value">${otp}</div>
+      </div>
+
+      <p style="color: #94a3b8; font-size: 13px; margin: 12px 0 0;">
+        Enter this code in Pulse to verify your profile and start recording your high scores.
+      </p>
+
+      <div class="info-box">
+        <strong style="color: #f59e0b;">⏳ Note:</strong> This code is valid for <strong>10 minutes</strong>. Never share this code with anyone. Pulse personnel will never ask for your verification code.
+      </div>
+    </div>
+    <div class="footer">
+      <div>Dispatched via Amazon SES • noreply@bevdamanus.in</div>
+      <div style="margin-top: 4px;">Timestamp: ${timestamp}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Plain text fallback for OTP email.
+ */
+function buildOtpTextBody(email: string, otp: string): string {
+  return `⚡ PULSE - ACCESS VERIFICATION CODE
+========================================
+Player Account: ${email}
+Your Single-Use Code: ${otp}
+
+This code is valid for 10 minutes.
+Enter this code in Pulse to verify your profile and start recording your scores.
+
+If you did not request this code, you can safely ignore this email.
+========================================
+Dispatched via Amazon SES • noreply@bevdamanus.in`;
+}
+
+/**
+ * Sends a 6-digit OTP verification email via AWS SES.
+ */
+export async function sendOtpEmail(email: string, otp: string): Promise<EmailResult> {
+  const sender = getSenderEmail();
+  const subject = `⚡ Your Pulse Verification Code: ${otp}`;
+
+  if (process.env.NODE_ENV === 'test') {
+    logger.info('[Email Mock] Test mode OTP email dispatch', {
+      to: email,
+      subject,
+      otp,
+    });
+    return { sent: true, messageId: 'test-mock-otp-id' };
+  }
+
+  try {
+    const command = new SendEmailCommand({
+      Source: sender,
+      Destination: {
+        ToAddresses: [email],
+      },
+      Message: {
+        Subject: {
+          Charset: 'UTF-8',
+          Data: subject,
+        },
+        Body: {
+          Html: {
+            Charset: 'UTF-8',
+            Data: buildOtpHtmlTemplate(email, otp),
+          },
+          Text: {
+            Charset: 'UTF-8',
+            Data: buildOtpTextBody(email, otp),
+          },
+        },
+      },
+    });
+
+    const result = await sesClient.send(command);
+    logger.info('SES OTP email sent successfully', {
+      messageId: result.MessageId,
+      recipient: email,
+    });
+
+    return { sent: true, messageId: result.MessageId };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    logger.warn('Failed to send SES OTP email', {
+      error: errorMessage,
+      sender,
+      recipient: email,
+    });
+    return { sent: false, error: errorMessage };
+  }
+}
+
+/**
  * Sends a game score report to the target email address via AWS SES.
  */
 export async function sendScoreEmail(options: SendScoreEmailOptions): Promise<EmailResult> {
   const recipient = options.recipientEmail || SES_TO_EMAIL;
-  const sender = SES_FROM_EMAIL;
+  const sender = getSenderEmail();
   const subject = `⚡ Pulse Game Score: Level ${options.level} (${options.score.toLocaleString()} pts)`;
 
   // In local development or testing without credentials, mock gracefully

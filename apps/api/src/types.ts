@@ -25,9 +25,41 @@ export interface ScoreResponse {
   error?: string | undefined;
 }
 
-export interface TokenPayload {
+export interface TokenPayload extends Record<string, unknown> {
   level: number;
   sequence: number[];
   exp: number; // UNIX timestamp in milliseconds
   nonce: string;
+}
+
+export interface OtpTokenPayload extends Record<string, unknown> {
+  email: string;
+  salt: string;
+  otpHash: string;
+  exp: number;
+  sub: 'otp_verification';
+}
+
+export interface UserSessionPayload extends Record<string, unknown> {
+  email: string;
+  exp: number;
+  sub: 'user_session';
+}
+
+export interface SendOtpResponse {
+  success: boolean;
+  message: string;
+  otpToken?: string | undefined;
+  expiresInSeconds?: number | undefined;
+  error?: string | undefined;
+}
+
+export interface VerifyOtpResponse {
+  success: boolean;
+  message: string;
+  sessionToken?: string | undefined;
+  user?: {
+    email: string;
+  } | undefined;
+  error?: string | undefined;
 }

@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ParticleCanvas } from './components/ParticleCanvas';
 import { NeonPad } from './components/NeonPad';
 import { ScoreBoard, type GameState } from './components/ScoreBoard';
+import { LoginModal } from './components/LoginModal';
 import { soundFx } from './utils/audio';
 import { fetchRound, verifyRound, fetchHealth, submitScore, type HealthResponse } from './utils/api';
-import { Play, RotateCcw, AlertTriangle, Activity, Mail } from 'lucide-react';
+import { Play, RotateCcw, AlertTriangle, Activity, Mail, UserPlus } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [level, setLevel] = useState<number>(1);
@@ -29,25 +30,64 @@ export const App: React.FC = () => {
   const [isShake, setIsShake] = useState<boolean>(false);
   const [emailStatus, setEmailStatus] = useState<string | null>(null);
 
+  // Authenticated user session state
+  const [user, setUser] = useState<{ email: string } | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pulse_user');
+      return saved ? JSON.parse(saved) : null;
+    }
+    return null;
+  });
+
+  const [sessionToken, setSessionToken] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pulse_session_token');
+    }
+    return null;
+  });
+
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
+  const handleLoginSuccess = (newUser: { email: string }, newSessionToken: string) => {
+    setUser(newUser);
+    setSessionToken(newSessionToken);
+    localStorage.setItem('pulse_user', JSON.stringify(newUser));
+    localStorage.setItem('pulse_session_token', newSessionToken);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setSessionToken(null);
+    localStorage.removeItem('pulse_user');
+    localStorage.removeItem('pulse_session_token');
+  };
+
   const triggerGameOver = useCallback((finalScore: number, finalLevel: number) => {
     soundFx.playGameOver();
     setIsShake(true);
     setTimeout(() => setIsShake(false), 500);
     setGameState('GAME_OVER');
 
-    setEmailStatus('Dispatching score report to abhaychavan346@gmail.com...');
-    submitScore({ score: finalScore, level: finalLevel })
+    const targetEmail = user?.email || 'abhaychavan346@gmail.com';
+    setEmailStatus(`Dispatching score report to ${targetEmail}...`);
+
+    submitScore({
+      score: finalScore,
+      level: finalLevel,
+      sessionToken: sessionToken || undefined,
+      recipientEmail: user?.email || undefined,
+    })
       .then((res) => {
         if (res.emailSent) {
-          setEmailStatus('⚡ Score report sent to abhaychavan346@gmail.com');
+          setEmailStatus(`⚡ Score report sent to ${res.recipient || targetEmail}`);
         } else {
-          setEmailStatus('Score saved (email delivery pending SES verification)');
+          setEmailStatus('Score saved (email delivery pending)');
         }
       })
       .catch(() => {
         setEmailStatus('Score saved locally');
       });
-  }, []);
+  }, [user, sessionToken]);
 
   // Check backend health on mount
   useEffect(() => {
@@ -227,6 +267,9 @@ export const App: React.FC = () => {
           onToggleSound={handleToggleSound}
           playerInputCount={playerInput.length}
           totalSequenceLength={currentSequence.length}
+          user={user}
+          onOpenLogin={() => setIsLoginModalOpen(true)}
+          onLogout={handleLogout}
         />
       </header>
 
@@ -303,6 +346,18 @@ export const App: React.FC = () => {
                   <span>{emailStatus}</span>
                 </div>
               )}
+
+              {!user && (
+                <button
+                  type="button"
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="w-full py-2.5 px-3 bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/40 rounded-xl flex items-center justify-center gap-2 text-xs text-purple-200 font-mono transition"
+                >
+                  <UserPlus className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Log in with OTP to email future scores to you</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={handleStartGame}
@@ -330,6 +385,13 @@ export const App: React.FC = () => {
           )}
         </div>
       </footer>
+
+      {/* Login & OTP Verification Modal */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
     </div>
   );
 };
