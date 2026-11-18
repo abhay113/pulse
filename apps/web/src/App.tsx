@@ -3,9 +3,16 @@ import { ParticleCanvas } from './components/ParticleCanvas';
 import { NeonPad } from './components/NeonPad';
 import { ScoreBoard, type GameState } from './components/ScoreBoard';
 import { LoginModal } from './components/LoginModal';
+import { BroadcastModal } from './components/BroadcastModal';
 import { soundFx } from './utils/audio';
-import { fetchRound, verifyRound, fetchHealth, submitScore, type HealthResponse } from './utils/api';
-import { Play, RotateCcw, AlertTriangle, Activity, Mail, UserPlus } from 'lucide-react';
+import {
+  fetchRound,
+  verifyRound,
+  fetchHealth,
+  submitScore,
+  type HealthResponse,
+} from './utils/api';
+import { Play, RotateCcw, AlertTriangle, Activity, Mail, UserPlus, Send } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [level, setLevel] = useState<number>(1);
@@ -54,6 +61,8 @@ export const App: React.FC = () => {
     return false;
   });
 
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState<boolean>(false);
+
   const handleLoginSuccess = (newUser: { email: string }, newSessionToken: string) => {
     setUser(newUser);
     setSessionToken(newSessionToken);
@@ -73,35 +82,38 @@ export const App: React.FC = () => {
     setIsLoginModalOpen(false);
   };
 
-  const triggerGameOver = useCallback((finalScore: number, finalLevel: number) => {
-    soundFx.playGameOver();
-    setIsShake(true);
-    setTimeout(() => setIsShake(false), 500);
-    setGameState('GAME_OVER');
+  const triggerGameOver = useCallback(
+    (finalScore: number, finalLevel: number) => {
+      soundFx.playGameOver();
+      setIsShake(true);
+      setTimeout(() => setIsShake(false), 500);
+      setGameState('GAME_OVER');
 
-    // ONLY logged-in players receive score emails
-    if (user && sessionToken) {
-      setEmailStatus(`Dispatching score report to ${user.email}...`);
-      submitScore({
-        score: finalScore,
-        level: finalLevel,
-        sessionToken,
-      })
-        .then((res) => {
-          if (res.emailSent) {
-            setEmailStatus(`⚡ Score report sent to ${res.recipient || user.email}`);
-          } else {
-            setEmailStatus('Score saved (email delivery skipped)');
-          }
+      // ONLY logged-in players receive score emails
+      if (user && sessionToken) {
+        setEmailStatus(`Dispatching score report to ${user.email}...`);
+        submitScore({
+          score: finalScore,
+          level: finalLevel,
+          sessionToken,
         })
-        .catch(() => {
-          setEmailStatus('Score saved locally');
-        });
-    } else {
-      // Guest mode: zero emails triggered
-      setEmailStatus(null);
-    }
-  }, [user, sessionToken]);
+          .then((res) => {
+            if (res.emailSent) {
+              setEmailStatus(`⚡ Score report sent to ${res.recipient || user.email}`);
+            } else {
+              setEmailStatus('Score saved (email delivery skipped)');
+            }
+          })
+          .catch(() => {
+            setEmailStatus('Score saved locally');
+          });
+      } else {
+        // Guest mode: zero emails triggered
+        setEmailStatus(null);
+      }
+    },
+    [user, sessionToken],
+  );
 
   // Check backend health on mount
   useEffect(() => {
@@ -379,6 +391,21 @@ export const App: React.FC = () => {
 
               <button
                 type="button"
+                onClick={() => {
+                  if (!user || !sessionToken) {
+                    setIsLoginModalOpen(true);
+                  } else {
+                    setIsBroadcastModalOpen(true);
+                  }
+                }}
+                className="w-full py-3.5 px-4 rounded-xl font-display font-bold text-xs tracking-widest text-cyan-200 hover:text-white bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/50 hover:border-cyan-400 active:scale-[0.99] transition shadow-sm flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4 text-cyan-400" />
+                <span>⚡ BROADCAST SCORE TO PLAYERS</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleStartGame}
                 className="w-full py-4 rounded-xl font-display font-black text-lg tracking-widest text-white bg-red-600 hover:bg-red-500 active:scale-[0.99] transition shadow-lg flex items-center justify-center gap-2"
               >
@@ -412,6 +439,18 @@ export const App: React.FC = () => {
         onLoginSuccess={handleLoginSuccess}
         onPlayAsGuest={handlePlayAsGuest}
       />
+
+      {/* Broadcast Score Modal */}
+      {user && sessionToken && (
+        <BroadcastModal
+          isOpen={isBroadcastModalOpen}
+          onClose={() => setIsBroadcastModalOpen(false)}
+          score={score}
+          level={level}
+          userEmail={user.email}
+          sessionToken={sessionToken}
+        />
+      )}
     </div>
   );
 };

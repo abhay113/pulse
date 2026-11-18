@@ -58,8 +58,27 @@ export interface VerifyOtpResponse {
   success: boolean;
   message: string;
   sessionToken?: string | undefined;
-  user?: {
-    email: string;
-  } | undefined;
+  user?:
+    | {
+        email: string;
+      }
+    | undefined;
+  error?: string | undefined;
+}
+
+export interface BroadcastRecipientResult {
+  email: string;
+  sent: boolean;
+  messageId?: string | undefined;
+  error?: string | undefined;
+}
+
+export interface BroadcastScoreResponse {
+  success: boolean;
+  message: string;
+  total: number;
+  sentCount: number;
+  failedCount: number;
+  results: BroadcastRecipientResult[];
   error?: string | undefined;
 }

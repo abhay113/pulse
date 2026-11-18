@@ -7,6 +7,7 @@ import {
   scoreBodySchema,
   sendOtpSchema,
   verifyOtpSchema,
+  broadcastScoreSchema,
 } from './validation.js';
 import {
   signToken,
@@ -19,7 +20,7 @@ import {
   verifyOtpHash,
 } from './crypto.js';
 import { gameRepository } from './db/repository.js';
-import { sendScoreEmail, sendOtpEmail } from './email.js';
+import { sendScoreEmail, sendOtpEmail, sendBroadcastScoreEmails } from './email.js';
 import type {
   HealthResponse,
   RoundResponse,
@@ -27,6 +28,7 @@ import type {
   ScoreResponse,
   SendOtpResponse,
   VerifyOtpResponse,
+  BroadcastScoreResponse,
   OtpTokenPayload,
   UserSessionPayload,
 } from './types.js';
@@ -287,7 +289,12 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
         });
       }
 
-      const isMatch = verifyOtpHash(otp, tokenRes.payload.salt, normalizedEmail, tokenRes.payload.otpHash);
+      const isMatch = verifyOtpHash(
+        otp,
+        tokenRes.payload.salt,
+        normalizedEmail,
+        tokenRes.payload.otpHash,
+      );
       if (!isMatch) {
         logger.warn('Incorrect OTP code submitted', { requestId, email: normalizedEmail });
         return jsonResponse(401, {
@@ -387,6 +394,83 @@ export async function handler(event: APIGatewayProxyEventV2): Promise<APIGateway
           : 'Score recorded (email delivery skipped)',
         recipient: targetEmail,
         ...(emailResult.error ? { error: emailResult.error } : {}),
+      };
+
+      return jsonResponse(200, response);
+    }
+
+    // POST /api/score/broadcast
+    if (path === '/api/score/broadcast' && method === 'POST') {
+      let rawBody = event.body || '{}';
+      if (event.isBase64Encoded) {
+        rawBody = Buffer.from(rawBody, 'base64').toString('utf8');
+      }
+
+      let parsedBody: unknown;
+      try {
+        parsedBody = JSON.parse(rawBody);
+      } catch {
+        return jsonResponse(400, { error: 'Bad Request', message: 'Invalid JSON body' });
+      }
+
+      const parseResult = broadcastScoreSchema.safeParse(parsedBody);
+      if (!parseResult.success) {
+        logger.warn('Invalid broadcast score payload', {
+          requestId,
+          issues: parseResult.error.issues,
+        });
+        return jsonResponse(400, {
+          error: 'Bad Request',
+          issues: parseResult.error.issues.map((i) => i.message),
+        });
+      }
+
+      const { score, level, playerName, sessionToken, recipients } = parseResult.data;
+
+      const sess = verifyPayload<UserSessionPayload>(sessionToken);
+      if (!sess.valid || !sess.payload || sess.payload.sub !== 'user_session') {
+        logger.warn('Broadcast attempt with invalid or expired session token', { requestId });
+        return jsonResponse(401, {
+          success: false,
+          total: recipients.length,
+          sentCount: 0,
+          failedCount: recipients.length,
+          results: [],
+          message: 'Session has expired or is invalid. Please log in again to broadcast scores.',
+        });
+      }
+
+      const senderEmail = sess.payload.email;
+      logger.info('Processing score broadcast dispatch', {
+        requestId,
+        score,
+        level,
+        playerName,
+        senderEmail,
+        recipientCount: recipients.length,
+      });
+
+      const deliveryResults = await sendBroadcastScoreEmails({
+        score,
+        level,
+        senderEmail,
+        playerName,
+        recipients,
+      });
+
+      const sentCount = deliveryResults.filter((r) => r.sent).length;
+      const failedCount = deliveryResults.length - sentCount;
+
+      const response: BroadcastScoreResponse = {
+        success: sentCount > 0,
+        message:
+          sentCount === deliveryResults.length
+            ? `Score broadcast successfully dispatched to ${sentCount} player(s)`
+            : `Score broadcast dispatched: ${sentCount} succeeded, ${failedCount} failed`,
+        total: deliveryResults.length,
+        sentCount,
+        failedCount,
+        results: deliveryResults,
       };
 
       return jsonResponse(200, response);

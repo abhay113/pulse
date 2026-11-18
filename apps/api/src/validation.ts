@@ -30,8 +30,26 @@ export const sendOtpSchema = z.object({
 
 export const verifyOtpSchema = z.object({
   email: z.string().trim().email('Please enter a valid email address'),
-  otp: z.string().trim().regex(/^\d{6}$/, 'OTP must be exactly 6 digits'),
+  otp: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'OTP must be exactly 6 digits'),
   otpToken: z.string().trim().min(1, 'OTP token is required'),
+});
+
+export const broadcastScoreSchema = z.object({
+  score: z.number().int().min(0, 'Score must be non-negative'),
+  level: z.number().int().min(1, 'Level must be >= 1'),
+  playerName: z.string().trim().max(50).optional(),
+  sessionToken: z
+    .string()
+    .trim()
+    .min(1, 'Authentication session token is required to broadcast scores'),
+  recipients: z
+    .array(z.string().trim().email('Invalid recipient email address'))
+    .min(1, 'Please provide at least one recipient email address')
+    .max(10, 'A maximum of 10 recipients can be broadcasted to at once')
+    .transform((emails) => Array.from(new Set(emails.map((e) => e.toLowerCase())))),
 });
 
 export type RoundQuery = z.infer<typeof roundQuerySchema>;
@@ -39,3 +57,4 @@ export type VerifyBody = z.infer<typeof verifyBodySchema>;
 export type ScoreBody = z.infer<typeof scoreBodySchema>;
 export type SendOtpBody = z.infer<typeof sendOtpSchema>;
 export type VerifyOtpBody = z.infer<typeof verifyOtpSchema>;
+export type BroadcastScoreBody = z.infer<typeof broadcastScoreSchema>;

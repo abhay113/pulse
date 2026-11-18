@@ -63,7 +63,11 @@ export async function sendOtp(email: string): Promise<SendOtpResponse> {
   return data;
 }
 
-export async function verifyOtp(email: string, otp: string, otpToken: string): Promise<VerifyOtpResponse> {
+export async function verifyOtp(
+  email: string,
+  otp: string,
+  otpToken: string,
+): Promise<VerifyOtpResponse> {
   const res = await fetch('/api/auth/verify-otp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -117,4 +121,44 @@ export async function submitScore(payload: ScorePayload): Promise<ScoreResponse>
     throw new Error(errorBody.message || 'Failed to submit score');
   }
   return res.json();
+}
+
+export interface BroadcastRecipientResult {
+  email: string;
+  sent: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+export interface BroadcastScorePayload {
+  score: number;
+  level: number;
+  playerName?: string;
+  sessionToken: string;
+  recipients: string[];
+}
+
+export interface BroadcastScoreResponse {
+  success: boolean;
+  message: string;
+  total: number;
+  sentCount: number;
+  failedCount: number;
+  results: BroadcastRecipientResult[];
+  error?: string;
+}
+
+export async function broadcastScore(
+  payload: BroadcastScorePayload,
+): Promise<BroadcastScoreResponse> {
+  const res = await fetch('/api/score/broadcast', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || `Failed to broadcast score (HTTP ${res.status})`);
+  }
+  return data;
 }

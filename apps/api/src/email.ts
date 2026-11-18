@@ -480,3 +480,323 @@ export async function sendScoreEmail(options: SendScoreEmailOptions): Promise<Em
     return { sent: false, error: errorMessage };
   }
 }
+
+export interface SendBroadcastOptions {
+  score: number;
+  level: number;
+  senderEmail: string;
+  playerName?: string | undefined;
+  recipients: string[];
+}
+
+export interface BroadcastRecipientDelivery {
+  email: string;
+  sent: boolean;
+  messageId?: string | undefined;
+  error?: string | undefined;
+}
+
+/**
+ * Builds a styled cyberpunk neon HTML email template for 1-to-1 score broadcast delivery.
+ * Each recipient's template references ONLY their own address to preserve total privacy.
+ */
+function buildBroadcastHtmlTemplate(options: {
+  score: number;
+  level: number;
+  playerName?: string | undefined;
+  senderEmail: string;
+  recipient: string;
+}): string {
+  const { score, level, playerName, senderEmail, recipient } = options;
+  const name = playerName || senderEmail.split('@')[0] || 'A player';
+  const timestamp = new Date().toUTCString();
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pulse Score Broadcast</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #080a10;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    .container {
+      max-width: 560px;
+      margin: 30px auto;
+      background: #0f1422;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 240, 255, 0.15);
+    }
+    .header {
+      background: linear-gradient(135deg, #0d1326 0%, #1e1233 100%);
+      padding: 32px 24px;
+      text-align: center;
+      border-bottom: 2px solid #00f0ff;
+    }
+    .logo {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: #00f0ff;
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+      margin: 0;
+    }
+    .broadcast-tag {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 4px 12px;
+      background: rgba(255, 0, 127, 0.15);
+      border: 1px solid #ff007f;
+      border-radius: 20px;
+      color: #ff007f;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .content {
+      padding: 36px 28px;
+    }
+    .challenge-banner {
+      background: #090d16;
+      border-left: 3px solid #00f0ff;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+    .score-card {
+      background: #090d16;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      margin: 20px 0;
+    }
+    .score-label {
+      color: #ff007f;
+      font-size: 12px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .score-value {
+      font-size: 54px;
+      font-weight: 900;
+      color: #00f0ff;
+      margin: 8px 0;
+      letter-spacing: 2px;
+      text-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+    }
+    .stat-badge {
+      display: inline-block;
+      background: #0d121f;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 8px 20px;
+      font-size: 13px;
+      color: #10b981;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .cta-container {
+      text-align: center;
+      margin: 32px 0 16px;
+    }
+    .cta-button {
+      background: linear-gradient(90deg, #00f0ff 0%, #ff007f 100%);
+      color: #080a10 !important;
+      font-weight: 900;
+      font-size: 14px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 14px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .footer {
+      background: #07090f;
+      padding: 20px;
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+      border-top: 1px solid #1e293b;
+      line-height: 1.6;
+    }
+    .privacy-note {
+      color: #94a3b8;
+      font-size: 11px;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">⚡ PULSE</div>
+      <div class="broadcast-tag">PLAYER SCORE CHALLENGE</div>
+    </div>
+    <div class="content">
+      <div class="challenge-banner">
+        <strong>${name}</strong> (${senderEmail}) just finished an intense session of <strong>Pulse</strong> and broadcasted their score to challenge you!
+      </div>
+      <div class="score-card">
+        <div class="score-label">FINAL SCORE BROADCAST</div>
+        <div class="score-value">${score.toLocaleString()}</div>
+        <div class="stat-badge">REACHED LEVEL ${level}</div>
+      </div>
+      <p style="text-align: center; font-size: 14px; color: #94a3b8; margin: 24px 0 8px;">
+        Think you have sharper reaction times and memory? Test your reflexes now:
+      </p>
+      <div class="cta-container">
+        <a href="https://bevdamanus.in" class="cta-button" target="_blank">PLAY &amp; BEAT THIS SCORE</a>
+      </div>
+    </div>
+    <div class="footer">
+      <div>Dispatched via Amazon SES • Cloudflare Worker &amp; AWS Lambda</div>
+      <div class="privacy-note">🔒 Private 1-to-1 dispatch to ${recipient}. None of your data is shared with other recipients.</div>
+      <div style="margin-top: 4px;">Timestamp: ${timestamp}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Plain text fallback for score broadcast.
+ */
+function buildBroadcastTextBody(options: {
+  score: number;
+  level: number;
+  playerName?: string | undefined;
+  senderEmail: string;
+  recipient: string;
+}): string {
+  const { score, level, playerName, senderEmail, recipient } = options;
+  const name = playerName || senderEmail.split('@')[0] || 'A player';
+  return `⚡ PULSE - SCORE CHALLENGE BROADCAST
+========================================
+${name} (${senderEmail}) just scored ${score.toLocaleString()} points at Level ${level} in Pulse!
+
+Think you can beat it? Play now at:
+https://bevdamanus.in
+
+========================================
+🔒 Private 1-to-1 dispatch to ${recipient}.
+Dispatched via Amazon SES on AWS Lambda`;
+}
+
+/**
+ * Sends score broadcasts to multiple recipients via Amazon SES.
+ * GUARANTEES 1-TO-1 PRIVACY: Every recipient receives their own distinct email where
+ * ToAddresses contains ONLY their address. No recipient can see any other recipient's address.
+ */
+export async function sendBroadcastScoreEmails(
+  options: SendBroadcastOptions,
+): Promise<BroadcastRecipientDelivery[]> {
+  const { score, level, senderEmail, playerName, recipients } = options;
+  const fromAddress = getSenderEmail();
+  const name = playerName || senderEmail.split('@')[0] || 'Player';
+  const subject = `⚡ ${name} challenged you! Pulse Score: Level ${level} (${score.toLocaleString()} pts)`;
+
+  // In test mode, return mocked deliveries
+  if (process.env.NODE_ENV === 'test') {
+    logger.info('[Email Mock] Test mode broadcast email dispatch', {
+      from: fromAddress,
+      senderEmail,
+      recipientCount: recipients.length,
+      recipients,
+      score,
+    });
+    return recipients.map((email) => ({
+      email,
+      sent: true,
+      messageId: `test-mock-broadcast-${email}`,
+    }));
+  }
+
+  // Strictly individual 1-to-1 transmissions so each recipient sees ONLY their own address in To:
+  const deliveries = await Promise.allSettled(
+    recipients.map(async (recipient) => {
+      try {
+        const command = new SendEmailCommand({
+          Source: fromAddress,
+          Destination: {
+            ToAddresses: [recipient], // Strictly 1 address per email!
+          },
+          Message: {
+            Subject: {
+              Charset: 'UTF-8',
+              Data: subject,
+            },
+            Body: {
+              Html: {
+                Charset: 'UTF-8',
+                Data: buildBroadcastHtmlTemplate({
+                  score,
+                  level,
+                  playerName,
+                  senderEmail,
+                  recipient,
+                }),
+              },
+              Text: {
+                Charset: 'UTF-8',
+                Data: buildBroadcastTextBody({
+                  score,
+                  level,
+                  playerName,
+                  senderEmail,
+                  recipient,
+                }),
+              },
+            },
+          },
+        });
+
+        const result = await sesClient.send(command);
+        logger.info('SES broadcast email sent to recipient', {
+          messageId: result.MessageId,
+          recipient,
+          senderEmail,
+        });
+        return {
+          email: recipient,
+          sent: true,
+          messageId: result.MessageId,
+        };
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        logger.warn('Failed to send SES broadcast email to recipient', {
+          recipient,
+          error: errorMessage,
+        });
+        return {
+          email: recipient,
+          sent: false,
+          error: errorMessage,
+        };
+      }
+    }),
+  );
+
+  return deliveries.map((d, index) => {
+    if (d.status === 'fulfilled') {
+      return d.value;
+    }
+    return {
+      email: recipients[index] || 'unknown',
+      sent: false,
+      error: d.reason instanceof Error ? d.reason.message : String(d.reason),
+    };
+  });
+}

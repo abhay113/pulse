@@ -299,6 +299,80 @@ describe('Pulse API Handler', () => {
     expect(body.recipient).toBe('customplayer@domain.com');
   });
 
+  it('POST /api/score/broadcast dispatches isolated emails to multiple recipients', async () => {
+    const { signPayload } = await import('../src/crypto.js');
+    const sessionToken = signPayload({
+      email: 'abhaychavan346@gmail.com',
+      exp: Date.now() + 3600000,
+      sub: 'user_session',
+    });
+
+    const recipients = [
+      'abhaychavan346@gmail.com',
+      'abhaychavan005@gmail.com',
+      'abhay.chavan@cicdsys.com',
+    ];
+
+    const event = createMockEvent({
+      method: 'POST',
+      path: '/api/score/broadcast',
+      body: {
+        score: 3500,
+        level: 10,
+        playerName: 'Abhay',
+        sessionToken,
+        recipients,
+      },
+    });
+    const response = (await handler(event)) as { statusCode: number; body: string };
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.success).toBe(true);
+    expect(body.total).toBe(3);
+    expect(body.sentCount).toBe(3);
+    expect(body.failedCount).toBe(0);
+    expect(body.results).toHaveLength(3);
+    expect(body.results.map((r: { email: string }) => r.email)).toEqual(recipients);
+    expect(body.results.every((r: { sent: boolean }) => r.sent)).toBe(true);
+  });
+
+  it('POST /api/score/broadcast rejects request without session token', async () => {
+    const event = createMockEvent({
+      method: 'POST',
+      path: '/api/score/broadcast',
+      body: {
+        score: 1500,
+        level: 5,
+        recipients: ['player1@gmail.com'],
+      },
+    });
+    const response = (await handler(event)) as { statusCode: number; body: string };
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('POST /api/score/broadcast rejects request with expired session token', async () => {
+    const { signPayload } = await import('../src/crypto.js');
+    const expiredToken = signPayload({
+      email: 'abhaychavan346@gmail.com',
+      exp: Date.now() - 1000,
+      sub: 'user_session',
+    });
+
+    const event = createMockEvent({
+      method: 'POST',
+      path: '/api/score/broadcast',
+      body: {
+        score: 1500,
+        level: 5,
+        sessionToken: expiredToken,
+        recipients: ['player1@gmail.com'],
+      },
+    });
+    const response = (await handler(event)) as { statusCode: number; body: string };
+    expect(response.statusCode).toBe(401);
+  });
+
   it('Returns 404 for unknown endpoints', async () => {
     const event = createMockEvent({ method: 'GET', path: '/api/nonexistent' });
     const response = (await handler(event)) as { statusCode: number; body: string };

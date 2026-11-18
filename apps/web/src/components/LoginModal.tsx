@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { X, Mail, KeyRound, Loader2, ArrowRight, RotateCcw, AlertTriangle, CheckCircle2, Gamepad2 } from 'lucide-react';
+import {
+  X,
+  Mail,
+  KeyRound,
+  Loader2,
+  ArrowRight,
+  RotateCcw,
+  AlertTriangle,
+  CheckCircle2,
+  Gamepad2,
+} from 'lucide-react';
 import { sendOtp, verifyOtp } from '../utils/api';
 
 interface LoginModalProps {
@@ -9,7 +19,12 @@ interface LoginModalProps {
   onPlayAsGuest?: () => void;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess, onPlayAsGuest }) => {
+export const LoginModal: React.FC<LoginModalProps> = ({
+  isOpen,
+  onClose,
+  onLoginSuccess,
+  onPlayAsGuest,
+}) => {
   const [step, setStep] = useState<'EMAIL' | 'OTP'>('EMAIL');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -132,7 +147,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
         {step === 'EMAIL' ? (
           <form onSubmit={handleSendOtp} className="space-y-4">
             <div>
-              <label htmlFor="email-input" className="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">
+              <label
+                htmlFor="email-input"
+                className="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2"
+              >
                 Your Email Address
               </label>
               <div className="relative">
@@ -192,7 +210,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
           <form onSubmit={handleVerifyOtp} className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label htmlFor="otp-input" className="block text-xs font-mono text-gray-400 uppercase tracking-wider">
+                <label
+                  htmlFor="otp-input"
+                  className="block text-xs font-mono text-gray-400 uppercase tracking-wider"
+                >
                   6-Digit Verification Code
                 </label>
                 <button
@@ -261,4 +282,3 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin
     </div>
   );
 };
-
